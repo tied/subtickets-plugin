@@ -2,8 +2,10 @@ package com.subtickets.servlet;
 
 import com.atlassian.jira.bc.issue.IssueService;
 import com.atlassian.jira.component.ComponentAccessor;
+import com.atlassian.jira.exception.CreateException;
 import com.atlassian.jira.issue.IssueInputParametersImpl;
 import com.atlassian.jira.issue.MutableIssue;
+import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.user.util.UserManager;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
@@ -12,7 +14,7 @@ import com.atlassian.sal.api.net.RequestFactory;
 import com.atlassian.sal.api.net.ResponseException;
 import com.atlassian.sal.api.net.ReturningResponseHandler;
 import com.atlassian.sal.api.user.UserProfile;
-import com.shepilov.jiratutorial.roomers.Roomers;
+import com.subtickets.roomers.Roomers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,12 +43,19 @@ public class MyServlet extends HttpServlet {
     @ComponentImport
     private RequestFactory<?> requestFactory;
 
+    private IssueType subIssueType;
+
     @Inject
     public MyServlet(IssueService issueService, com.atlassian.sal.api.user.UserManager userManager, RequestFactory requestFactory) {
         this.issueService = issueService;
         this.userManager = userManager;
         this.jiraUserManager = ComponentAccessor.getUserManager();
         this.requestFactory = requestFactory;
+        ComponentAccessor.getConstantsManager().getAllIssueTypeObjects()
+                .stream()
+                .filter(issueType -> issueType.getName().equals("Sub-task"))
+                .findFirst()
+                .ifPresent(issueType -> subIssueType = issueType);
     }
 
     @Override
@@ -64,7 +73,6 @@ public class MyServlet extends HttpServlet {
         MutableIssue issue = issueService.getIssue(applicationUser, issueKey).getIssue();
         Long issueId = issue.getId();
         System.out.println(issueId);
-        resp.sendRedirect(referer);
 
         Request<?, ?> request = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL);
         try {
@@ -73,19 +81,25 @@ public class MyServlet extends HttpServlet {
                         IssueInputParametersImpl parameters = new IssueInputParametersImpl();
                         parameters.setReporterId(applicationUser.getName());
                         parameters.setProjectId(issue.getProjectObject().getId());
-                        parameters.setIssueTypeId("10100");
+                        parameters.setIssueTypeId(subIssueType.getId());
                         parameters.setSummary(issue.getSummary());
                         IssueService.CreateValidationResult validationResult = issueService.validateSubTaskCreate(applicationUser, issueId, parameters);
                         log.debug("Validation result", validationResult.isValid());
                         if (validationResult.isValid()) {
                             IssueService.IssueResult issueResult = issueService.create(applicationUser, validationResult);
-                            issueResult.getIssue().setParentObject(issue);
+                            MutableIssue subTask = issueResult.getIssue();
+                            try {
+                                ComponentAccessor.getSubTaskManager().createSubTaskIssueLink(issue, subTask, applicationUser);
+                            } catch (CreateException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
             );
         } catch (ResponseException e) {
             e.printStackTrace();
         }
+        resp.sendRedirect(referer);
     }
 }
 
