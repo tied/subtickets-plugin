@@ -12,7 +12,6 @@ import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.net.Request;
 import com.atlassian.sal.api.net.RequestFactory;
 import com.atlassian.sal.api.net.ResponseException;
-import com.atlassian.sal.api.net.ReturningResponseHandler;
 import com.atlassian.sal.api.user.UserProfile;
 import com.subtickets.roomers.Roomers;
 import org.slf4j.Logger;
@@ -20,15 +19,14 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Named
-public class MyServlet extends HttpServlet {
-    private static final Logger log = LoggerFactory.getLogger(MyServlet.class);
+public class SubTicketsServlet extends HttpServlet {
+    private static final Logger log = LoggerFactory.getLogger(SubTicketsServlet.class);
 
     private static final String ROOMERS_URL = "http://5.101.122.147:8089/api/osbb/command/roomers";
 
@@ -46,7 +44,7 @@ public class MyServlet extends HttpServlet {
     private IssueType subIssueType;
 
     @Inject
-    public MyServlet(IssueService issueService, com.atlassian.sal.api.user.UserManager userManager, RequestFactory requestFactory) {
+    public SubTicketsServlet(IssueService issueService, com.atlassian.sal.api.user.UserManager userManager, RequestFactory requestFactory) {
         this.issueService = issueService;
         this.userManager = userManager;
         this.jiraUserManager = ComponentAccessor.getUserManager();
@@ -59,20 +57,12 @@ public class MyServlet extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        System.out.println("------------------------------------------");
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String referer = req.getHeader("referer");
-        System.out.println(referer);
-        System.out.println(issueService);
-        System.out.println(jiraUserManager);
-        System.out.println(userManager);
         String issueKey = req.getParameter("id");
-        System.out.println(issueKey);
         UserProfile user = userManager.getRemoteUser(req);
         ApplicationUser applicationUser = jiraUserManager.getUserByKey(user.getUserKey().getStringValue());
         MutableIssue issue = issueService.getIssue(applicationUser, issueKey).getIssue();
-        Long issueId = issue.getId();
-        System.out.println(issueId);
 
         Request<?, ?> request = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL);
         try {
@@ -83,8 +73,7 @@ public class MyServlet extends HttpServlet {
                         parameters.setProjectId(issue.getProjectObject().getId());
                         parameters.setIssueTypeId(subIssueType.getId());
                         parameters.setSummary(issue.getSummary());
-                        IssueService.CreateValidationResult validationResult = issueService.validateSubTaskCreate(applicationUser, issueId, parameters);
-                        log.debug("Validation result", validationResult.isValid());
+                        IssueService.CreateValidationResult validationResult = issueService.validateSubTaskCreate(applicationUser, issue.getId(), parameters);
                         if (validationResult.isValid()) {
                             IssueService.IssueResult issueResult = issueService.create(applicationUser, validationResult);
                             MutableIssue subTask = issueResult.getIssue();
@@ -100,12 +89,5 @@ public class MyServlet extends HttpServlet {
             e.printStackTrace();
         }
         resp.sendRedirect(referer);
-    }
-}
-
-
-class RoomersResponseHandler implements ReturningResponseHandler<com.atlassian.sal.api.net.Response, Roomers> {
-    public Roomers handle(com.atlassian.sal.api.net.Response response) throws ResponseException {
-        return response.getEntity(Roomers.class);
     }
 }

@@ -10,13 +10,13 @@
     </plugin-info>
     <!-- add our i18n resource -->
     <resource type="i18n" name="i18n" location="subtickets-plugin"/>
-    <web-item name="My Web Item" i18n-name-key="my-web-item.name" key="my-web-item" section="operations-top-level" weight="2">
-        <description key="my-web-item.description">The My Web Item Plugin</description>
-        <label key="my-web-item.label">FooBar</label>
-        <link linkId="my-web-item-link">/plugins/servlet/myservlet?id=$issue.key</link>
+    <web-item name="Sub-Tickets Creation Item" i18n-name-key="subtickets-creation-link.name" key="subtickets-creation-link" section="operations-top-level" weight="2">
+        <description key="subtickets-creation-link.description">The Sub-Tickets Creation Item Plugin</description>
+        <label key="subtickets-creation-link.label">FooBar</label>
+        <link linkId="subtickets-creation-link">/plugins/servlet/create-subtickets?id=$issue.key</link>
     </web-item>
-    <servlet name="My Servlet" i18n-name-key="my-servlet.name" key="my-servlet" class="com.subtickets.servlet.MyServlet">
-        <description key="my-servlet.description">The My Servlet Plugin</description>
-        <url-pattern>/myservlet</url-pattern>
+    <servlet name="Sub-Tickets Servlet" i18n-name-key="subtickets-servlet.name" key="subtickets-servlet" class="com.subtickets.servlet.SubTicketsServlet">
+        <description key="subtickets-servlet.description">The Sub-Tickets Plugin</description>
+        <url-pattern>/create-subtickets</url-pattern>
     </servlet>
 </atlassian-plugin>
