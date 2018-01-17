@@ -14,7 +14,10 @@
         <description key="subtickets-creation-link.description">The Sub-Tickets Creation Item Plugin</description>
         <label key="subtickets-creation-link.label">FooBar</label>
         <link linkId="subtickets-creation-link">/plugins/servlet/create-subtickets?id=$issue.key</link>
-        <condition class="com.subtickets.conditions.AccountantRoleCondition"></condition>
+        <conditions type="AND">
+            <condition class="com.subtickets.conditions.AccountantRoleCondition"/>
+            <condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>
+        </conditions>
     </web-item>
     <servlet name="Sub-Tickets Servlet" i18n-name-key="subtickets-servlet.name" key="subtickets-servlet" class="com.subtickets.servlet.SubTicketsServlet">
         <description key="subtickets-servlet.description">The Sub-Tickets Plugin</description>

@@ -6,9 +6,6 @@ import com.atlassian.jira.plugin.webfragment.model.JiraHelper;
 import com.atlassian.jira.security.roles.ProjectRole;
 import com.atlassian.jira.security.roles.ProjectRoleManager;
 import com.atlassian.jira.user.ApplicationUser;
-import com.atlassian.plugin.PluginParseException;
-
-import java.util.Map;
 
 public class AccountantRoleCondition extends AbstractWebCondition {
 
@@ -24,11 +21,8 @@ public class AccountantRoleCondition extends AbstractWebCondition {
     }
 
     @Override
-    public void init(Map<String, String> params) throws PluginParseException {
-    }
-
-    @Override
     public boolean shouldDisplay(ApplicationUser user, JiraHelper jiraHelper) {
         return roleManager.isUserInProjectRole(user, accountantRole, jiraHelper.getProject());
     }
+
 }
