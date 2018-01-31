@@ -30,9 +30,12 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Named
 public class SubTicketsServlet extends HttpServlet {
@@ -48,6 +51,13 @@ public class SubTicketsServlet extends HttpServlet {
 
     private static final String PLANNED_COSTS_FIELD_NAME = "plannedCosts";
     private static final String ACTUAL_COSTS_FIELD_NAME = "actualCosts";
+
+    private static CustomField PLANNED_COSTS_FIELD;
+    private static CustomField ACTUAL_COSTS_FIELD;
+
+    private static final String AUTO_COMPONENT_NAME = "Auto";
+    private static final String DOOR_COMPONENT_NAME = "Door";
+    private static final String SQUARE_COMPONENT_NAME = "Square";
 
     private IssueType fundPaymentIssueType;
     private IssueType fundPaymentSubIssueType;
@@ -71,8 +81,6 @@ public class SubTicketsServlet extends HttpServlet {
     @ComponentImport
     private SubTaskManager subTaskManager;
 
-    private CustomFieldManager customFieldManager;
-
     @Inject
     public SubTicketsServlet(IssueService issueService, com.atlassian.sal.api.user.UserManager userManager, RequestFactory requestFactory, LabelManager labelManager,
                              SubTaskManager subTaskManager) {
@@ -82,7 +90,11 @@ public class SubTicketsServlet extends HttpServlet {
         this.requestFactory = requestFactory;
         this.labelManager = labelManager;
         this.subTaskManager = subTaskManager;
-        this.customFieldManager = ComponentAccessor.getCustomFieldManager();
+
+        CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
+        ACTUAL_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(ACTUAL_COSTS_FIELD_NAME);
+        PLANNED_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(PLANNED_COSTS_FIELD_NAME);
+
         Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
         issueTypes.forEach(type -> {
             switch (type.getName()) {
@@ -96,7 +108,7 @@ public class SubTicketsServlet extends HttpServlet {
                     monthlyPaymentIssueType = type;
                     break;
                 case (MONTHLY_PAYMENT_SUB_ISSUE_TYPE_NAME):
-                    monthlyPaymentSubIssueType= type;
+                    monthlyPaymentSubIssueType = type;
                     break;
             }
         });
@@ -111,7 +123,7 @@ public class SubTicketsServlet extends HttpServlet {
             if (issue.getIssueType() == monthlyPaymentIssueType) {
                 createMonthlyPaymentsSubIssues(applicationUser, issue);
             } else if (issue.getIssueType() == fundPaymentIssueType) {
-                createFundPaymentSubIssues();
+                createFundPaymentSubIssues(applicationUser, issue);
             }
         } catch (ResponseException e) {
             e.printStackTrace();
@@ -120,21 +132,51 @@ public class SubTicketsServlet extends HttpServlet {
         resp.sendRedirect(req.getHeader("referer"));
     }
 
-    private void createMonthlyPaymentsSubIssues(ApplicationUser user, Issue parentIssue) throws ResponseException {
+    private void createMonthlyPaymentsSubIssues(ApplicationUser user, Issue issue) throws ResponseException {
         Roomers roomers = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL).executeAndReturn(new RoomersResponseHandler());
         roomers.forEach((key, roomer) -> {
-            IssueInputParameters parameters = generateIssueInputParameters(user, parentIssue)
-            .setSummary(parentIssue.getSummary() + " " + roomer.holderInfo);
-            Issue issue = doCreateSubIssue(user, parentIssue, parameters);
-            if (issue != null) {
-                setActualCosts(issue, roomer.amount.doubleValue());
-                labelManager.setLabels(user, issue.getId(), new HashSet<>(Arrays.asList(roomer.owned_Doors)), true, true);
+            IssueInputParameters parameters = generateIssueInputParameters(user, issue)
+                    .setSummary(issue.getSummary() + " " + roomer.holderInfo);
+            Issue subIssue = doCreateSubIssue(user, issue, parameters);
+            if (subIssue != null) {
+                setActualCosts(subIssue, roomer.amount);
+                labelManager.setLabels(user, subIssue.getId(), new HashSet<>(Arrays.asList(roomer.owned_Doors)), true, true);
             }
         });
     }
 
-    private void createFundPaymentSubIssues() {
+    private void createFundPaymentSubIssues(ApplicationUser user, Issue issue) throws ResponseException {
+        String component = new ArrayList<>(issue.getComponents()).get(0).getName();
+        switch (component) {
+            case AUTO_COMPONENT_NAME:
+                createAutoFundPayments(user, issue);
+        }
+    }
 
+    private void createAutoFundPayments(ApplicationUser user, Issue issue) throws ResponseException {
+        Roomers roomers = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL).executeAndReturn(new RoomersResponseHandler());
+        long autosCount = roomers.values().stream()
+                .map(roomer -> roomer.owned_Autos)
+                .flatMap(Arrays::stream)
+                .count();
+        Double plannedCosts = (Double) issue.getCustomFieldValue(PLANNED_COSTS_FIELD);
+        Double singlePayment = plannedCosts / autosCount;
+        roomers.values()
+                .stream()
+                .filter(roomer -> roomer.owned_Autos.length > 0)
+                .forEach(roomer -> {
+                    IssueInputParameters parameters = generateIssueInputParameters(user, issue)
+                            .setSummary(issue.getSummary() + " " + roomer.fio);
+                    Issue subIssue = doCreateSubIssue(user, issue, parameters);
+                    if (subIssue != null) {
+                        setActualCosts(subIssue, singlePayment * roomer.owned_Autos.length);
+                        setPlannedCosts(subIssue, plannedCosts);
+                        Set<String> autos = Arrays.stream(roomer.owned_Autos)
+                                .map(auto -> auto.replaceAll(" ", "_"))
+                                .collect(Collectors.toSet());
+                        labelManager.setLabels(user, subIssue.getId(), autos, true, true);
+                    }
+                });
     }
 
     private IssueInputParameters generateIssueInputParameters(ApplicationUser user, Issue issue) {
@@ -162,8 +204,13 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private void setActualCosts(Issue issue, Double value) {
-        CustomField customField = customFieldManager.getCustomFieldObjectByName(ACTUAL_COSTS_FIELD_NAME);
         ModifiedValue modifiedValue = new ModifiedValue<>(0.0d, value);
-        customField.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
+        ACTUAL_COSTS_FIELD.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
+    }
+
+    private void setPlannedCosts(Issue issue, Double value) {
+        ModifiedValue modifiedValue = new ModifiedValue<>(0.0d, value);
+        PLANNED_COSTS_FIELD.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
+
     }
 }
