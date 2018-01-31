@@ -9,6 +9,6 @@ public class Roomer {
     public Float participantIndex;
     public String[] owned_Autos;
     public String[] owned_Doors;
-    public Float amount;
+    public Double amount;
     public Float totalSquire;
 }

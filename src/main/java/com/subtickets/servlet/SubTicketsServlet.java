@@ -4,12 +4,16 @@ import com.atlassian.jira.bc.issue.IssueService;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.config.SubTaskManager;
 import com.atlassian.jira.exception.CreateException;
+import com.atlassian.jira.issue.CustomFieldManager;
 import com.atlassian.jira.issue.Issue;
 import com.atlassian.jira.issue.IssueInputParameters;
 import com.atlassian.jira.issue.IssueInputParametersImpl;
+import com.atlassian.jira.issue.ModifiedValue;
 import com.atlassian.jira.issue.MutableIssue;
+import com.atlassian.jira.issue.fields.CustomField;
 import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.issue.label.LabelManager;
+import com.atlassian.jira.issue.util.DefaultIssueChangeHolder;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.user.util.UserManager;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
@@ -28,14 +32,27 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.HashSet;
 
 @Named
 public class SubTicketsServlet extends HttpServlet {
+
     private static final Logger log = LoggerFactory.getLogger(SubTicketsServlet.class);
 
     private static final String ROOMERS_URL = "http://5.101.122.147:8089/api/osbb/command/roomers";
+
+    private static final String FUND_PAYMENT_ISSUE_TYPE_NAME = "Fund Payment";
+    private static final String FUND_PAYMENT_SUB_ISSUE_TYPE_NAME = "Item Fund Payment";
+    private static final String MONTHLY_PAYMENT_ISSUE_TYPE_NAME = "Monthly Payment";
+    private static final String MONTHLY_PAYMENT_SUB_ISSUE_TYPE_NAME = "Roomer Monthly Payment";
+
+    private static final String PLANNED_COSTS_FIELD_NAME = "plannedCosts";
+    private static final String ACTUAL_COSTS_FIELD_NAME = "actualCosts";
+
+    private IssueType fundPaymentIssueType;
+    private IssueType fundPaymentSubIssueType;
+    private IssueType monthlyPaymentIssueType;
+    private IssueType monthlyPaymentSubIssueType;
 
     @ComponentImport
     private IssueService issueService;
@@ -54,9 +71,7 @@ public class SubTicketsServlet extends HttpServlet {
     @ComponentImport
     private SubTaskManager subTaskManager;
 
-    private IssueType fundIssueType;
-
-    private IssueType monthlyPaymentType;
+    private CustomFieldManager customFieldManager;
 
     @Inject
     public SubTicketsServlet(IssueService issueService, com.atlassian.sal.api.user.UserManager userManager, RequestFactory requestFactory, LabelManager labelManager,
@@ -67,13 +82,24 @@ public class SubTicketsServlet extends HttpServlet {
         this.requestFactory = requestFactory;
         this.labelManager = labelManager;
         this.subTaskManager = subTaskManager;
+        this.customFieldManager = ComponentAccessor.getCustomFieldManager();
         Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
-        issueTypes.stream().filter(issueType -> issueType.getName().equals("Fund"))
-                .findFirst()
-                .ifPresent(issueType -> fundIssueType = issueType);
-        issueTypes.stream().filter(issueType -> issueType.getName().equals("Monthly Payment"))
-                .findFirst()
-                .ifPresent(issueType -> monthlyPaymentType = issueType);
+        issueTypes.forEach(type -> {
+            switch (type.getName()) {
+                case (FUND_PAYMENT_ISSUE_TYPE_NAME):
+                    fundPaymentIssueType = type;
+                    break;
+                case (FUND_PAYMENT_SUB_ISSUE_TYPE_NAME):
+                    fundPaymentSubIssueType = type;
+                    break;
+                case (MONTHLY_PAYMENT_ISSUE_TYPE_NAME):
+                    monthlyPaymentIssueType = type;
+                    break;
+                case (MONTHLY_PAYMENT_SUB_ISSUE_TYPE_NAME):
+                    monthlyPaymentSubIssueType= type;
+                    break;
+            }
+        });
     }
 
     @Override
@@ -82,9 +108,9 @@ public class SubTicketsServlet extends HttpServlet {
         MutableIssue issue = issueService.getIssue(applicationUser, req.getParameter("id")).getIssue();
 
         try {
-            if (issue.getIssueType() == monthlyPaymentType) {
+            if (issue.getIssueType() == monthlyPaymentIssueType) {
                 createMonthlyPaymentsSubIssues(applicationUser, issue);
-            } else if (issue.getIssueType() == fundIssueType) {
+            } else if (issue.getIssueType() == fundPaymentIssueType) {
                 createFundPaymentSubIssues();
             }
         } catch (ResponseException e) {
@@ -96,18 +122,13 @@ public class SubTicketsServlet extends HttpServlet {
 
     private void createMonthlyPaymentsSubIssues(ApplicationUser user, Issue parentIssue) throws ResponseException {
         Roomers roomers = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL).executeAndReturn(new RoomersResponseHandler());
-        List<String> doors = roomers.values()
-                .stream()
-                .map(roomer -> roomer.owned_Doors)
-                .flatMap(Arrays::stream)
-                .distinct()
-                .collect(Collectors.toList());
-        doors.forEach(door -> {
+        roomers.forEach((key, roomer) -> {
             IssueInputParameters parameters = generateIssueInputParameters(user, parentIssue)
-                    .setSummary(parentIssue.getSummary() + " " + door);
-            Issue subIssue = doCreateSubIssue(user, parentIssue, parameters);
-            if (subIssue != null) {
-                labelManager.addLabel(user, subIssue.getId(), door, true);
+            .setSummary(parentIssue.getSummary() + " " + roomer.holderInfo);
+            Issue issue = doCreateSubIssue(user, parentIssue, parameters);
+            if (issue != null) {
+                setActualCosts(issue, roomer.amount.doubleValue());
+                labelManager.setLabels(user, issue.getId(), new HashSet<>(Arrays.asList(roomer.owned_Doors)), true, true);
             }
         });
     }
@@ -117,10 +138,12 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private IssueInputParameters generateIssueInputParameters(ApplicationUser user, Issue issue) {
+        IssueType parentIssueType = issue.getIssueType();
+        IssueType subIssueType = parentIssueType == fundPaymentIssueType ? fundPaymentSubIssueType : parentIssueType == monthlyPaymentIssueType ? monthlyPaymentSubIssueType : null;
         return new IssueInputParametersImpl()
                 .setReporterId(user.getName())
                 .setProjectId(issue.getProjectId())
-                .setIssueTypeId(issue.getIssueTypeId());
+                .setIssueTypeId(subIssueType.getId());
     }
 
     private Issue doCreateSubIssue(ApplicationUser user, Issue parentIssue, IssueInputParameters parameters) {
@@ -136,5 +159,11 @@ public class SubTicketsServlet extends HttpServlet {
             return subIssue;
         }
         return null;
+    }
+
+    private void setActualCosts(Issue issue, Double value) {
+        CustomField customField = customFieldManager.getCustomFieldObjectByName(ACTUAL_COSTS_FIELD_NAME);
+        ModifiedValue modifiedValue = new ModifiedValue<>(0.0d, value);
+        customField.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
     }
 }
