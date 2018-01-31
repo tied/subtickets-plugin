@@ -11,4 +11,12 @@ public class Roomer {
     public String[] owned_Doors;
     public Double amount;
     public Float totalSquire;
+
+    public String[] getAutos() {
+        return owned_Autos;
+    }
+
+    public String[] getDoors() {
+        return owned_Doors;
+    }
 }

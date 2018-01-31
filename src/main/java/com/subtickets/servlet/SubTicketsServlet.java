@@ -20,6 +20,7 @@ import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.net.Request;
 import com.atlassian.sal.api.net.RequestFactory;
 import com.atlassian.sal.api.net.ResponseException;
+import com.subtickets.roomers.Roomer;
 import com.subtickets.roomers.Roomers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Named
@@ -150,31 +152,45 @@ public class SubTicketsServlet extends HttpServlet {
         switch (component) {
             case AUTO_COMPONENT_NAME:
                 createAutoFundPayments(user, issue);
+                break;
+            case DOOR_COMPONENT_NAME:
+                createDoorFundPayments(user, issue);
         }
     }
 
     private void createAutoFundPayments(ApplicationUser user, Issue issue) throws ResponseException {
+        createFundPayments(user, issue, Roomer::getAutos);
+
+    }
+
+    private void createDoorFundPayments(ApplicationUser user, Issue issue) throws ResponseException {
+        createFundPayments(user, issue, Roomer::getDoors);
+
+    }
+
+    private void createFundPayments(ApplicationUser user, Issue issue, Function<Roomer, String[]> items) throws ResponseException {
         Roomers roomers = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL).executeAndReturn(new RoomersResponseHandler());
-        long autosCount = roomers.values().stream()
-                .map(roomer -> roomer.owned_Autos)
+        long itemsCount = roomers.values().stream()
+                .map(items)
                 .flatMap(Arrays::stream)
                 .count();
         Double plannedCosts = (Double) issue.getCustomFieldValue(PLANNED_COSTS_FIELD);
-        Double singlePayment = plannedCosts / autosCount;
+        Double singlePayment = plannedCosts / itemsCount;
         roomers.values()
                 .stream()
-                .filter(roomer -> roomer.owned_Autos.length > 0)
+                .filter(roomer -> items.apply(roomer).length > 0)
                 .forEach(roomer -> {
                     IssueInputParameters parameters = generateIssueInputParameters(user, issue)
                             .setSummary(issue.getSummary() + " " + roomer.fio);
                     Issue subIssue = doCreateSubIssue(user, issue, parameters);
                     if (subIssue != null) {
-                        setActualCosts(subIssue, singlePayment * roomer.owned_Autos.length);
+                        String[] roomerItems = items.apply(roomer);
+                        setActualCosts(subIssue, singlePayment * roomerItems.length);
                         setPlannedCosts(subIssue, plannedCosts);
-                        Set<String> autos = Arrays.stream(roomer.owned_Autos)
-                                .map(auto -> auto.replaceAll(" ", "_"))
+                        Set<String> itemsLabels = Arrays.stream(roomerItems)
+                                .map(item -> item.replaceAll(" ", "_"))
                                 .collect(Collectors.toSet());
-                        labelManager.setLabels(user, subIssue.getId(), autos, true, true);
+                        labelManager.setLabels(user, subIssue.getId(), itemsLabels, true, true);
                     }
                 });
     }
