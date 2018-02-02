@@ -181,7 +181,7 @@ public class SubTicketsServlet extends HttpServlet {
                 .filter(roomer -> items.apply(roomer).length > 0)
                 .forEach(roomer -> {
                     IssueInputParameters parameters = generateIssueInputParameters(user, issue)
-                            .setSummary(issue.getSummary() + " " + roomer.fio);
+                            .setSummary(issue.getSummary() + " - " + roomer.fio);
                     Issue subIssue = doCreateSubIssue(user, issue, parameters);
                     if (subIssue != null) {
                         String[] roomerItems = items.apply(roomer);
@@ -190,6 +190,7 @@ public class SubTicketsServlet extends HttpServlet {
                         Set<String> itemsLabels = Arrays.stream(roomerItems)
                                 .map(item -> item.replaceAll(" ", "_"))
                                 .collect(Collectors.toSet());
+                        itemsLabels.add(getInitials(roomer.fio));
                         labelManager.setLabels(user, subIssue.getId(), itemsLabels, true, true);
                     }
                 });
@@ -227,6 +228,13 @@ public class SubTicketsServlet extends HttpServlet {
     private void setPlannedCosts(Issue issue, Double value) {
         ModifiedValue modifiedValue = new ModifiedValue<>(0.0d, value);
         PLANNED_COSTS_FIELD.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
+    }
 
+    private String getInitials(String fullName) {
+        String[] names = fullName.split(" ");
+        String initials = Arrays.stream(names, 1, names.length)
+                .map(name -> String.valueOf(name.charAt(0)))
+                .collect(Collectors.joining("."));
+        return names[0] + "_" + initials + ".";
     }
 }
