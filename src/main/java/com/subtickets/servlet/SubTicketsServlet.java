@@ -1,6 +1,7 @@
 package com.subtickets.servlet;
 
 import com.atlassian.jira.bc.issue.IssueService;
+import com.atlassian.jira.bc.project.component.ProjectComponent;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.config.SubTaskManager;
 import com.atlassian.jira.exception.CreateException;
@@ -34,10 +35,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 
 @Named
 public class SubTicketsServlet extends HttpServlet {
@@ -60,6 +64,7 @@ public class SubTicketsServlet extends HttpServlet {
     private static final String AUTO_COMPONENT_NAME = "Auto";
     private static final String DOOR_COMPONENT_NAME = "Door";
     private static final String SQUARE_COMPONENT_NAME = "Square";
+    private static final String UNDERGROUND_COMPONENT_NAME = "Underground";
 
     private IssueType fundPaymentIssueType;
     private IssueType fundPaymentSubIssueType;
@@ -135,49 +140,69 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private void createMonthlyPaymentsSubIssues(ApplicationUser user, Issue issue) throws ResponseException {
-        Roomers roomers = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL).executeAndReturn(new RoomersResponseHandler());
-        roomers.forEach((key, roomer) -> {
+        getRoomers().forEach((key, roomer) -> {
             IssueInputParameters parameters = generateIssueInputParameters(user, issue)
-                    .setSummary(issue.getSummary() + " " + roomer.holderInfo);
+                    .setSummary(issue.getSummary() + " - " + roomer.holderInfo);
             Issue subIssue = doCreateSubIssue(user, issue, parameters);
             if (subIssue != null) {
                 setActualCosts(subIssue, roomer.amount);
-                labelManager.setLabels(user, subIssue.getId(), new HashSet<>(Arrays.asList(roomer.owned_Doors)), true, true);
+                addLabels(user, subIssue, roomer.owned_Doors);
             }
         });
     }
 
     private void createFundPaymentSubIssues(ApplicationUser user, Issue issue) throws ResponseException {
-        String component = new ArrayList<>(issue.getComponents()).get(0).getName();
+        String component = getComponent(issue).getName();
         switch (component) {
             case AUTO_COMPONENT_NAME:
                 createAutoFundPayments(user, issue);
                 break;
             case DOOR_COMPONENT_NAME:
                 createDoorFundPayments(user, issue);
+                break;
+            case SQUARE_COMPONENT_NAME:
+                createSquareFundPayment(user, issue);
+                break;
         }
     }
 
     private void createAutoFundPayments(ApplicationUser user, Issue issue) throws ResponseException {
         createFundPayments(user, issue, Roomer::getAutos);
-
     }
 
     private void createDoorFundPayments(ApplicationUser user, Issue issue) throws ResponseException {
         createFundPayments(user, issue, Roomer::getDoors);
+    }
 
+    private void createSquareFundPayment(ApplicationUser user, Issue issue) throws ResponseException {
+        Roomers roomers = getRoomers();
+        Float totalSquare = roomers.values().stream()
+                .map(roomer -> roomer.totalSquire)
+                .reduce(0f, (a, b) -> a + b);
+        Double plannedCosts = getPlannedCosts(issue);
+        Double singlePayment = plannedCosts / totalSquare;
+        roomers.values()
+                .forEach(roomer -> {
+                    IssueInputParameters parameters = generateIssueInputParameters(user, issue)
+                            .setSummary(issue.getSummary() + " - " + roomer.fio);
+                    Issue subIssue = doCreateSubIssue(user, issue, parameters);
+                    if (subIssue != null) {
+                        setActualCosts(subIssue, singlePayment * roomer.totalSquire);
+                        setPlannedCosts(issue, plannedCosts);
+                        addLabels(user, issue, getInitials(roomer.fio));
+                    }
+                });
     }
 
     private void createFundPayments(ApplicationUser user, Issue issue, Function<Roomer, String[]> items) throws ResponseException {
-        Roomers roomers = requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL).executeAndReturn(new RoomersResponseHandler());
+        Roomers roomers = getRoomers();
         long itemsCount = roomers.values().stream()
                 .map(items)
                 .flatMap(Arrays::stream)
                 .count();
-        Double plannedCosts = (Double) issue.getCustomFieldValue(PLANNED_COSTS_FIELD);
+        Double plannedCosts = getPlannedCosts(issue);
         Double singlePayment = plannedCosts / itemsCount;
-        roomers.values()
-                .stream()
+        roomers.values().stream()
                 .filter(roomer -> items.apply(roomer).length > 0)
                 .forEach(roomer -> {
                     IssueInputParameters parameters = generateIssueInputParameters(user, issue)
@@ -187,11 +212,7 @@ public class SubTicketsServlet extends HttpServlet {
                         String[] roomerItems = items.apply(roomer);
                         setActualCosts(subIssue, singlePayment * roomerItems.length);
                         setPlannedCosts(subIssue, plannedCosts);
-                        Set<String> itemsLabels = Arrays.stream(roomerItems)
-                                .map(item -> item.replaceAll(" ", "_"))
-                                .collect(Collectors.toSet());
-                        itemsLabels.add(getInitials(roomer.fio));
-                        labelManager.setLabels(user, subIssue.getId(), itemsLabels, true, true);
+                        addLabels(user, issue, Stream.concat(Arrays.stream(roomerItems), Stream.of(getInitials(roomer.fio))).collect(toSet()));
                     }
                 });
     }
@@ -202,6 +223,7 @@ public class SubTicketsServlet extends HttpServlet {
         return new IssueInputParametersImpl()
                 .setReporterId(user.getName())
                 .setProjectId(issue.getProjectId())
+                .setComponentIds(getComponent(issue).getId())
                 .setIssueTypeId(subIssueType.getId());
     }
 
@@ -220,6 +242,14 @@ public class SubTicketsServlet extends HttpServlet {
         return null;
     }
 
+    private ProjectComponent getComponent(Issue issue) {
+        List<ProjectComponent> components = new ArrayList<>(issue.getComponents());
+        if (components.size() != 1) {
+            throw new RuntimeException("Issue should be associated with exactly 1 Component");
+        }
+        return components.get(0);
+    }
+
     private void setActualCosts(Issue issue, Double value) {
         ModifiedValue modifiedValue = new ModifiedValue<>(0.0d, value);
         ACTUAL_COSTS_FIELD.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
@@ -230,11 +260,28 @@ public class SubTicketsServlet extends HttpServlet {
         PLANNED_COSTS_FIELD.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
     }
 
+    private Double getPlannedCosts(Issue issue) {
+        return (Double) issue.getCustomFieldValue(PLANNED_COSTS_FIELD);
+    }
+
     private String getInitials(String fullName) {
         String[] names = fullName.split(" ");
         String initials = Arrays.stream(names, 1, names.length)
                 .map(name -> String.valueOf(name.charAt(0)))
-                .collect(Collectors.joining("."));
+                .collect(joining("."));
         return names[0] + "_" + initials + ".";
+    }
+
+    private Roomers getRoomers() throws ResponseException {
+        return requestFactory.createRequest(Request.MethodType.GET, ROOMERS_URL).executeAndReturn(new RoomersResponseHandler());
+    }
+
+    private void addLabels(ApplicationUser user, Issue issue, Collection<String> labels) {
+        Set<String> labelsSet = labels.stream().map(label -> label.replaceAll(" ", "_")).collect(toSet());
+        labelManager.setLabels(user, issue.getId(), labelsSet, true, true);
+    }
+
+    private void addLabels(ApplicationUser user, Issue issue, String... labels) {
+        addLabels(user, issue, Stream.of(labels).collect(toSet()));
     }
 }
