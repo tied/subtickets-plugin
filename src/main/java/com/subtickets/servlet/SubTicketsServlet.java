@@ -1,7 +1,6 @@
 package com.subtickets.servlet;
 
 import com.atlassian.jira.bc.issue.IssueService;
-import com.atlassian.jira.bc.project.component.ProjectComponent;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.config.SubTaskManager;
 import com.atlassian.jira.exception.CreateException;
@@ -32,14 +31,24 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.subtickets.Constants.ACTUAL_COSTS_FIELD_NAME;
+import static com.subtickets.Constants.AUTO_COMPONENT_NAME;
+import static com.subtickets.Constants.CUSTOM_FUND_TYPE_VALUE;
+import static com.subtickets.Constants.DOOR_COMPONENT_NAME;
+import static com.subtickets.Constants.ESTEBLISHED_FUND_TYPE_VALUE;
+import static com.subtickets.Constants.FUND_TYPE_FIELD_NAME;
+import static com.subtickets.Constants.PAYMENT_ISSUE_TYPE_NAME;
+import static com.subtickets.Constants.PAYMENT_SUB_ISSUE_TYPE_NAME;
+import static com.subtickets.Constants.FUND_COLLECTION_MANNER_FIELD_NAME;
+import static com.subtickets.Constants.PLANNED_COSTS_FIELD_NAME;
+import static com.subtickets.Constants.ROOMERS_URL;
+import static com.subtickets.Constants.SQUARE_COMPONENT_NAME;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 
@@ -48,28 +57,13 @@ public class SubTicketsServlet extends HttpServlet {
 
     private static final Logger log = LoggerFactory.getLogger(SubTicketsServlet.class);
 
-    private static final String ROOMERS_URL = "http://5.101.122.147:8089/api/osbb/command/roomers";
-
-    private static final String FUND_PAYMENT_ISSUE_TYPE_NAME = "Fund Payment";
-    private static final String FUND_PAYMENT_SUB_ISSUE_TYPE_NAME = "Item Fund Payment";
-    private static final String MONTHLY_PAYMENT_ISSUE_TYPE_NAME = "Monthly Payment";
-    private static final String MONTHLY_PAYMENT_SUB_ISSUE_TYPE_NAME = "Roomer Monthly Payment";
-
-    private static final String PLANNED_COSTS_FIELD_NAME = "plannedCosts";
-    private static final String ACTUAL_COSTS_FIELD_NAME = "actualCosts";
-
     private static CustomField PLANNED_COSTS_FIELD;
     private static CustomField ACTUAL_COSTS_FIELD;
-
-    private static final String AUTO_COMPONENT_NAME = "Auto";
-    private static final String DOOR_COMPONENT_NAME = "Door";
-    private static final String SQUARE_COMPONENT_NAME = "Square";
-    private static final String UNDERGROUND_COMPONENT_NAME = "Underground";
+    private static CustomField FUND_TYPE_FIELD;
+    private static CustomField FUND_COLLECTION_MANNER_TYPE_FIELD;
 
     private IssueType fundPaymentIssueType;
     private IssueType fundPaymentSubIssueType;
-    private IssueType monthlyPaymentIssueType;
-    private IssueType monthlyPaymentSubIssueType;
 
     @ComponentImport
     private IssueService issueService;
@@ -101,21 +95,17 @@ public class SubTicketsServlet extends HttpServlet {
         CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
         ACTUAL_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(ACTUAL_COSTS_FIELD_NAME);
         PLANNED_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(PLANNED_COSTS_FIELD_NAME);
+        FUND_TYPE_FIELD = customFieldManager.getCustomFieldObjectByName(FUND_TYPE_FIELD_NAME);
+        FUND_COLLECTION_MANNER_TYPE_FIELD = customFieldManager.getCustomFieldObjectByName(FUND_COLLECTION_MANNER_FIELD_NAME);
 
         Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
         issueTypes.forEach(type -> {
             switch (type.getName()) {
-                case (FUND_PAYMENT_ISSUE_TYPE_NAME):
+                case (PAYMENT_ISSUE_TYPE_NAME):
                     fundPaymentIssueType = type;
                     break;
-                case (FUND_PAYMENT_SUB_ISSUE_TYPE_NAME):
+                case (PAYMENT_SUB_ISSUE_TYPE_NAME):
                     fundPaymentSubIssueType = type;
-                    break;
-                case (MONTHLY_PAYMENT_ISSUE_TYPE_NAME):
-                    monthlyPaymentIssueType = type;
-                    break;
-                case (MONTHLY_PAYMENT_SUB_ISSUE_TYPE_NAME):
-                    monthlyPaymentSubIssueType = type;
                     break;
             }
         });
@@ -127,9 +117,9 @@ public class SubTicketsServlet extends HttpServlet {
         MutableIssue issue = issueService.getIssue(applicationUser, req.getParameter("id")).getIssue();
 
         try {
-            if (issue.getIssueType() == monthlyPaymentIssueType) {
+            if (getFundType(issue).equals(ESTEBLISHED_FUND_TYPE_VALUE)) {
                 createMonthlyPaymentsSubIssues(applicationUser, issue);
-            } else if (issue.getIssueType() == fundPaymentIssueType) {
+            } else if (getFundType(issue).equals(CUSTOM_FUND_TYPE_VALUE)) {
                 createFundPaymentSubIssues(applicationUser, issue);
             }
         } catch (ResponseException e) {
@@ -152,8 +142,7 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private void createFundPaymentSubIssues(ApplicationUser user, Issue issue) throws ResponseException {
-        String component = getComponent(issue).getName();
-        switch (component) {
+        switch (getCollectionManner(issue)) {
             case AUTO_COMPONENT_NAME:
                 createAutoFundPayments(user, issue);
                 break;
@@ -188,8 +177,8 @@ public class SubTicketsServlet extends HttpServlet {
                     Issue subIssue = doCreateSubIssue(user, issue, parameters);
                     if (subIssue != null) {
                         setActualCosts(subIssue, singlePayment * roomer.totalSquire);
-                        setPlannedCosts(issue, plannedCosts);
-                        addLabels(user, issue, getInitials(roomer.fio));
+                        setPlannedCosts(subIssue, plannedCosts);
+                        addLabels(user, subIssue, getInitials(roomer.fio));
                     }
                 });
     }
@@ -212,19 +201,16 @@ public class SubTicketsServlet extends HttpServlet {
                         String[] roomerItems = items.apply(roomer);
                         setActualCosts(subIssue, singlePayment * roomerItems.length);
                         setPlannedCosts(subIssue, plannedCosts);
-                        addLabels(user, issue, Stream.concat(Arrays.stream(roomerItems), Stream.of(getInitials(roomer.fio))).collect(toSet()));
+                        addLabels(user, subIssue, Stream.concat(Arrays.stream(roomerItems), Stream.of(getInitials(roomer.fio))).collect(toSet()));
                     }
                 });
     }
 
     private IssueInputParameters generateIssueInputParameters(ApplicationUser user, Issue issue) {
-        IssueType parentIssueType = issue.getIssueType();
-        IssueType subIssueType = parentIssueType == fundPaymentIssueType ? fundPaymentSubIssueType : parentIssueType == monthlyPaymentIssueType ? monthlyPaymentSubIssueType : null;
         return new IssueInputParametersImpl()
                 .setReporterId(user.getName())
                 .setProjectId(issue.getProjectId())
-                .setComponentIds(getComponent(issue).getId())
-                .setIssueTypeId(subIssueType.getId());
+                .setIssueTypeId(fundPaymentSubIssueType.getId());
     }
 
     private Issue doCreateSubIssue(ApplicationUser user, Issue parentIssue, IssueInputParameters parameters) {
@@ -242,12 +228,8 @@ public class SubTicketsServlet extends HttpServlet {
         return null;
     }
 
-    private ProjectComponent getComponent(Issue issue) {
-        List<ProjectComponent> components = new ArrayList<>(issue.getComponents());
-        if (components.size() != 1) {
-            throw new RuntimeException("Issue should be associated with exactly 1 Component");
-        }
-        return components.get(0);
+    private String getCollectionManner(Issue issue) {
+        return issue.getCustomFieldValue(FUND_COLLECTION_MANNER_TYPE_FIELD).toString();
     }
 
     private void setActualCosts(Issue issue, Double value) {
@@ -262,6 +244,10 @@ public class SubTicketsServlet extends HttpServlet {
 
     private Double getPlannedCosts(Issue issue) {
         return (Double) issue.getCustomFieldValue(PLANNED_COSTS_FIELD);
+    }
+
+    private String getFundType(Issue issue) {
+        return issue.getCustomFieldValue(FUND_TYPE_FIELD).toString();
     }
 
     private String getInitials(String fullName) {

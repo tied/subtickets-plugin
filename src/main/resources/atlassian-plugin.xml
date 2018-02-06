@@ -17,7 +17,7 @@
         <conditions type="AND">
             <condition class="com.subtickets.conditions.AccountantRoleCondition"/>
             <condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>
-            <condition class="com.subtickets.conditions.SubIssueTypeCondition" invert="true"/>
+            <condition class="com.subtickets.conditions.PaymentIssueTypeCondition"/>
         </conditions>
     </web-item>
     <servlet name="Sub-Tickets Servlet" i18n-name-key="subtickets-servlet.name" key="subtickets-servlet" class="com.subtickets.servlet.SubTicketsServlet">

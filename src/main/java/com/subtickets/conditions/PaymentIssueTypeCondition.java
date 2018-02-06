@@ -4,12 +4,13 @@ import com.atlassian.jira.issue.Issue;
 import com.atlassian.jira.plugin.webfragment.conditions.AbstractIssueWebCondition;
 import com.atlassian.jira.plugin.webfragment.model.JiraHelper;
 import com.atlassian.jira.user.ApplicationUser;
+import com.subtickets.Constants;
 
-public class SubIssueTypeCondition extends AbstractIssueWebCondition {
+public class PaymentIssueTypeCondition extends AbstractIssueWebCondition {
 
     @Override
     public boolean shouldDisplay(ApplicationUser user, Issue issue, JiraHelper jiraHelper) {
-        return issue.getIssueType().isSubTask();
+        return issue.getIssueType().getName().equals(Constants.PAYMENT_ISSUE_TYPE_NAME);
     }
 
 }
