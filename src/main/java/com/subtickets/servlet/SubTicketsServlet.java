@@ -156,52 +156,36 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private void createAutoFundPayments(ApplicationUser user, Issue issue) throws ResponseException {
-        createFundPayments(user, issue, Roomer::getAutos);
+        createFundPayments(user, issue, Roomer::getAutosToCount, Roomer::getAutos);
     }
 
     private void createDoorFundPayments(ApplicationUser user, Issue issue) throws ResponseException {
-        createFundPayments(user, issue, Roomer::getDoors);
+        createFundPayments(user, issue, Roomer::getDoorsToCount, Roomer::getDoors);
     }
 
     private void createSquareFundPayment(ApplicationUser user, Issue issue) throws ResponseException {
-        Roomers roomers = getRoomers();
-        Float totalSquare = roomers.values().stream()
-                .map(roomer -> roomer.totalSquire)
-                .reduce(0f, (a, b) -> a + b);
-        Double plannedCosts = getPlannedCosts(issue);
-        Double singlePayment = plannedCosts / totalSquare;
-        roomers.values()
-                .forEach(roomer -> {
-                    IssueInputParameters parameters = generateIssueInputParameters(user, issue)
-                            .setSummary(issue.getSummary() + " - " + roomer.fio);
-                    Issue subIssue = doCreateSubIssue(user, issue, parameters);
-                    if (subIssue != null) {
-                        setActualCosts(subIssue, singlePayment * roomer.totalSquire);
-                        setPlannedCosts(subIssue, plannedCosts);
-                        addLabels(user, subIssue, getInitials(roomer.fio));
-                    }
-                });
+        createFundPayments(user, issue, Roomer::getSquareToCount, null);
     }
 
-    private void createFundPayments(ApplicationUser user, Issue issue, Function<Roomer, String[]> items) throws ResponseException {
+    private void createFundPayments(ApplicationUser user, Issue issue, Function<Roomer, Number> items, Function<Roomer, String[]> labels) throws ResponseException {
         Roomers roomers = getRoomers();
-        long itemsCount = roomers.values().stream()
+        Double itemsCount = roomers.values().stream()
                 .map(items)
-                .flatMap(Arrays::stream)
-                .count();
+                .mapToDouble(Number::doubleValue)
+                .sum();
         Double plannedCosts = getPlannedCosts(issue);
-        Double singlePayment = plannedCosts / itemsCount;
+        Double singlePayment = (Math.ceil((plannedCosts / itemsCount) * 100)) / 100.0;
         roomers.values().stream()
-                .filter(roomer -> items.apply(roomer).length > 0)
+                .filter(roomer -> items.apply(roomer).doubleValue() > 0)
                 .forEach(roomer -> {
                     IssueInputParameters parameters = generateIssueInputParameters(user, issue)
                             .setSummary(issue.getSummary() + " - " + roomer.fio);
                     Issue subIssue = doCreateSubIssue(user, issue, parameters);
                     if (subIssue != null) {
-                        String[] roomerItems = items.apply(roomer);
-                        setActualCosts(subIssue, singlePayment * roomerItems.length);
+                        setActualCosts(subIssue, singlePayment * items.apply(roomer).doubleValue());
                         setPlannedCosts(subIssue, plannedCosts);
-                        addLabels(user, subIssue, Stream.concat(Arrays.stream(roomerItems), Stream.of(getInitials(roomer.fio))).collect(toSet()));
+                        String[] derivedLabels = labels != null ? labels.apply(roomer) : new String [] {};
+                        addLabels(user, subIssue, Stream.concat(Arrays.stream(derivedLabels), Stream.of(getInitials(roomer.fio))).collect(toSet()));
                     }
                 });
     }
