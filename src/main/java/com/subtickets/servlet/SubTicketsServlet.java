@@ -135,7 +135,7 @@ public class SubTicketsServlet extends HttpServlet {
                     .setSummary(issue.getSummary() + " - " + roomer.holderInfo);
             Issue subIssue = doCreateSubIssue(user, issue, parameters);
             if (subIssue != null) {
-                setActualCosts(subIssue, roomer.amount);
+                setPlannedCosts(subIssue, roomer.amount);
                 addLabels(user, subIssue, roomer.owned_Doors);
             }
         });
@@ -182,8 +182,7 @@ public class SubTicketsServlet extends HttpServlet {
                             .setSummary(issue.getSummary() + " - " + roomer.fio);
                     Issue subIssue = doCreateSubIssue(user, issue, parameters);
                     if (subIssue != null) {
-                        setActualCosts(subIssue, singlePayment * items.apply(roomer).doubleValue());
-                        setPlannedCosts(subIssue, plannedCosts);
+                        setPlannedCosts(subIssue, singlePayment * items.apply(roomer).doubleValue());
                         String[] derivedLabels = labels != null ? labels.apply(roomer) : new String [] {};
                         addLabels(user, subIssue, Stream.concat(Arrays.stream(derivedLabels), Stream.of(getInitials(roomer.fio))).collect(toSet()));
                     }
@@ -218,7 +217,7 @@ public class SubTicketsServlet extends HttpServlet {
 
     private void setActualCosts(Issue issue, Double value) {
         ModifiedValue modifiedValue = new ModifiedValue<>(0.0d, value);
-        ACTUAL_COSTS_FIELD.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
+        PLANNED_COSTS_FIELD.updateValue(null, issue, modifiedValue, new DefaultIssueChangeHolder());
     }
 
     private void setPlannedCosts(Issue issue, Double value) {

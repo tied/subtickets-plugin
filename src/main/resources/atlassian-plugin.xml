@@ -12,7 +12,7 @@
     <resource type="i18n" name="i18n" location="subtickets-plugin"/>
     <web-item name="Sub-Tickets Creation Item" i18n-name-key="subtickets-creation-link.name" key="subtickets-creation-link" section="operations-top-level" weight="2">
         <description key="subtickets-creation-link.description">The Sub-Tickets Creation Item Plugin</description>
-        <label key="subtickets-creation-link.label">FooBar</label>
+        <label key="subtickets-creation-link.label"></label>
         <link linkId="subtickets-creation-link">/plugins/servlet/create-subtickets?id=$issue.key</link>
         <conditions type="AND">
             <condition class="com.subtickets.conditions.AccountantRoleCondition"/>
