@@ -15,6 +15,7 @@ import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.issue.label.LabelManager;
 import com.atlassian.jira.issue.util.DefaultIssueChangeHolder;
 import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.jira.user.UserDetails;
 import com.atlassian.jira.user.util.UserManager;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.net.Request;
@@ -65,6 +66,8 @@ public class SubTicketsServlet extends HttpServlet {
     private IssueType fundPaymentIssueType;
     private IssueType fundPaymentSubIssueType;
 
+    private ApplicationUser roomerUser;
+
     @ComponentImport
     private IssueService issueService;
 
@@ -91,6 +94,18 @@ public class SubTicketsServlet extends HttpServlet {
         this.requestFactory = requestFactory;
         this.labelManager = labelManager;
         this.subTaskManager = subTaskManager;
+
+        if (this.jiraUserManager.getUserByName("Roomer") != null) {
+            roomerUser = this.jiraUserManager.getUserByName("Roomer");
+        } else if (this.jiraUserManager.getUserByName("roomer") != null) {
+            roomerUser = this.jiraUserManager.getUserByName("roomer");
+        } else {
+            try {
+                roomerUser = this.jiraUserManager.createUser(new UserDetails("Roomer", "Roomer"));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
         CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
         ACTUAL_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(ACTUAL_COSTS_FIELD_NAME);
@@ -191,6 +206,7 @@ public class SubTicketsServlet extends HttpServlet {
 
     private IssueInputParameters generateIssueInputParameters(ApplicationUser user, Issue issue) {
         return new IssueInputParametersImpl()
+                .setAssigneeId(roomerUser.getName())
                 .setReporterId(user.getName())
                 .setProjectId(issue.getProjectId())
                 .setIssueTypeId(fundPaymentSubIssueType.getId());
