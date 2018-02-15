@@ -13,6 +13,9 @@ import com.atlassian.jira.issue.MutableIssue;
 import com.atlassian.jira.issue.fields.CustomField;
 import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.issue.label.LabelManager;
+import com.atlassian.jira.issue.link.IssueLinkManager;
+import com.atlassian.jira.issue.link.IssueLinkType;
+import com.atlassian.jira.issue.link.IssueLinkTypeManager;
 import com.atlassian.jira.issue.util.DefaultIssueChangeHolder;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.user.UserDetails;
@@ -23,8 +26,6 @@ import com.atlassian.sal.api.net.RequestFactory;
 import com.atlassian.sal.api.net.ResponseException;
 import com.subtickets.roomers.Roomer;
 import com.subtickets.roomers.Roomers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -40,13 +41,14 @@ import java.util.stream.Stream;
 
 import static com.subtickets.Constants.ACTUAL_COSTS_FIELD_NAME;
 import static com.subtickets.Constants.AUTO_COMPONENT_NAME;
+import static com.subtickets.Constants.BLOCKED_BY_LINK_TYPE_NAME;
 import static com.subtickets.Constants.CUSTOM_FUND_TYPE_VALUE;
 import static com.subtickets.Constants.DOOR_COMPONENT_NAME;
 import static com.subtickets.Constants.ESTEBLISHED_FUND_TYPE_VALUE;
+import static com.subtickets.Constants.FUND_COLLECTION_MANNER_FIELD_NAME;
 import static com.subtickets.Constants.FUND_TYPE_FIELD_NAME;
 import static com.subtickets.Constants.PAYMENT_ISSUE_TYPE_NAME;
 import static com.subtickets.Constants.PAYMENT_SUB_ISSUE_TYPE_NAME;
-import static com.subtickets.Constants.FUND_COLLECTION_MANNER_FIELD_NAME;
 import static com.subtickets.Constants.PLANNED_COSTS_FIELD_NAME;
 import static com.subtickets.Constants.ROOMERS_URL;
 import static com.subtickets.Constants.SQUARE_COMPONENT_NAME;
@@ -55,8 +57,6 @@ import static java.util.stream.Collectors.toSet;
 
 @Named
 public class SubTicketsServlet extends HttpServlet {
-
-    private static final Logger log = LoggerFactory.getLogger(SubTicketsServlet.class);
 
     private static CustomField PLANNED_COSTS_FIELD;
     private static CustomField ACTUAL_COSTS_FIELD;
@@ -68,10 +68,10 @@ public class SubTicketsServlet extends HttpServlet {
 
     private ApplicationUser roomerUser;
 
+    private IssueLinkType blockedBy;
+
     @ComponentImport
     private IssueService issueService;
-
-    private UserManager jiraUserManager;
 
     @ComponentImport
     private com.atlassian.sal.api.user.UserManager userManager;
@@ -85,6 +85,10 @@ public class SubTicketsServlet extends HttpServlet {
     @ComponentImport
     private SubTaskManager subTaskManager;
 
+    private UserManager jiraUserManager;
+
+    private IssueLinkManager issueLinkManager;
+
     @Inject
     public SubTicketsServlet(IssueService issueService, com.atlassian.sal.api.user.UserManager userManager, RequestFactory requestFactory, LabelManager labelManager,
                              SubTaskManager subTaskManager) {
@@ -94,6 +98,10 @@ public class SubTicketsServlet extends HttpServlet {
         this.requestFactory = requestFactory;
         this.labelManager = labelManager;
         this.subTaskManager = subTaskManager;
+        issueLinkManager = ComponentAccessor.getIssueLinkManager();
+
+        blockedBy = ComponentAccessor.getComponent(IssueLinkTypeManager.class)
+                .getIssueLinkTypesByInwardDescription(BLOCKED_BY_LINK_TYPE_NAME).stream().findFirst().get();
 
         if (this.jiraUserManager.getUserByName("Roomer") != null) {
             roomerUser = this.jiraUserManager.getUserByName("Roomer");
@@ -219,6 +227,7 @@ public class SubTicketsServlet extends HttpServlet {
             MutableIssue subIssue = issueResult.getIssue();
             try {
                 subTaskManager.createSubTaskIssueLink(parentIssue, subIssue, user);
+                issueLinkManager.createIssueLink(subIssue.getId(), parentIssue.getId(), blockedBy.getId(), 0L, user);
             } catch (CreateException e) {
                 e.printStackTrace();
             }

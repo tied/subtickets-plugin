@@ -18,6 +18,8 @@ public class Constants {
     public static final String SQUARE_COMPONENT_NAME = "Sq";
     public static final String UNDERGROUND_COMPONENT_NAME = "Underground";
 
+    public static final String BLOCKED_BY_LINK_TYPE_NAME = "заблокирована";
+
     public static final String ROOMERS_URL = "http://5.101.122.147:8089/api/osbb/command/roomers";
 
 }
