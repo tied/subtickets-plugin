@@ -115,11 +115,22 @@ public class SubTicketsServlet extends HttpServlet {
             }
         }
 
-        CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
-        ACTUAL_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(ACTUAL_COSTS_FIELD_NAME);
-        PLANNED_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(PLANNED_COSTS_FIELD_NAME);
-        FUND_TYPE_FIELD = customFieldManager.getCustomFieldObjectByName(FUND_TYPE_FIELD_NAME);
-        FUND_COLLECTION_MANNER_TYPE_FIELD = customFieldManager.getCustomFieldObjectByName(FUND_COLLECTION_MANNER_FIELD_NAME);
+        ComponentAccessor.getCustomFieldManager().getCustomFieldObjects().forEach(customField -> {
+            switch (customField.getUntranslatedName()) {
+                case ACTUAL_COSTS_FIELD_NAME:
+                    ACTUAL_COSTS_FIELD = customField;
+                    break;
+                case PLANNED_COSTS_FIELD_NAME:
+                    PLANNED_COSTS_FIELD = customField;
+                    break;
+                case FUND_TYPE_FIELD_NAME:
+                    FUND_TYPE_FIELD = customField;
+                    break;
+                case FUND_COLLECTION_MANNER_FIELD_NAME:
+                    FUND_COLLECTION_MANNER_TYPE_FIELD = customField;
+                    break;
+            }
+        });
 
         Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
         issueTypes.forEach(type -> {
