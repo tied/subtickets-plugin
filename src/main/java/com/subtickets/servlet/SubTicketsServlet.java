@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.subtickets.Constants.ACTUAL_COSTS_FIELD_NAME;
@@ -151,9 +152,11 @@ public class SubTicketsServlet extends HttpServlet {
         MutableIssue issue = issueService.getIssue(applicationUser, req.getParameter("id")).getIssue();
 
         try {
-            if (getFundType(issue).equals(ESTEBLISHED_FUND_TYPE_VALUE)) {
+            String fundType = getFundType(issue);
+            Predicate<String> candidateMatch = getCandidateMatch(fundType);
+            if (ESTEBLISHED_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
                 createMonthlyPaymentsSubIssues(applicationUser, issue);
-            } else if (getFundType(issue).equals(CUSTOM_FUND_TYPE_VALUE)) {
+            } else if (CUSTOM_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
                 createFundPaymentSubIssues(applicationUser, issue);
             }
         } catch (ResponseException e) {
@@ -176,16 +179,14 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private void createFundPaymentSubIssues(ApplicationUser user, Issue issue) throws ResponseException {
-        switch (getCollectionManner(issue)) {
-            case AUTO_COMPONENT_NAME:
-                createAutoFundPayments(user, issue);
-                break;
-            case DOOR_COMPONENT_NAME:
-                createDoorFundPayments(user, issue);
-                break;
-            case SQUARE_COMPONENT_NAME:
-                createSquareFundPayment(user, issue);
-                break;
+        String collectionManner = getCollectionManner(issue);
+        Predicate<String> candidateMatch = getCandidateMatch(collectionManner);
+        if (AUTO_COMPONENT_NAME.stream().anyMatch(candidateMatch)) {
+            createAutoFundPayments(user, issue);
+        } else if (DOOR_COMPONENT_NAME.stream().anyMatch(candidateMatch)) {
+            createDoorFundPayments(user, issue);
+        } else if (SQUARE_COMPONENT_NAME.stream().anyMatch(candidateMatch)) {
+            createSquareFundPayment(user, issue);
         }
     }
 
@@ -217,7 +218,7 @@ public class SubTicketsServlet extends HttpServlet {
                     Issue subIssue = doCreateSubIssue(user, issue, parameters);
                     if (subIssue != null) {
                         setPlannedCosts(subIssue, singlePayment * items.apply(roomer).doubleValue());
-                        String[] derivedLabels = labels != null ? labels.apply(roomer) : new String [] {};
+                        String[] derivedLabels = labels != null ? labels.apply(roomer) : new String[]{};
                         addLabels(user, subIssue, Stream.concat(Arrays.stream(derivedLabels), Stream.of(getInitials(roomer.fio))).collect(toSet()));
                     }
                 });
@@ -288,5 +289,9 @@ public class SubTicketsServlet extends HttpServlet {
 
     private void addLabels(ApplicationUser user, Issue issue, String... labels) {
         addLabels(user, issue, Stream.of(labels).collect(toSet()));
+    }
+
+    private Predicate<String> getCandidateMatch(String target) {
+        return candidate -> candidate.equals(target);
     }
 }
