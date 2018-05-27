@@ -15,8 +15,9 @@ public class Constants {
     public static final String FUND_TYPE_FIELD_NAME = "Fund type";
     public static final String FUND_COLLECTION_MANNER_FIELD_NAME = "Fund collection manner";
 
-    public static final List<String> ESTEBLISHED_FUND_TYPE_VALUE = of("Esteblished").collect(toList());
-    public static final List<String> CUSTOM_FUND_TYPE_VALUE = of("Custom").collect(toList());
+    public static final List<String> ESTEBLISHED_FUND_TYPE_VALUE = of("Esteblished", "Плановый", "Плановий").collect(toList());
+    public static final List<String> CUSTOM_FUND_TYPE_VALUE = of("Custom", "Другое", "Інше").collect(toList());
+    public static final List<String> DEVELOPMENT_FUND_TYPE_VALUE = of("Development", "Развитие", "Розвиток").collect(toList());
 
     public static final List<String> AUTO_COMPONENT_NAME = of("Авто", "Auto").collect(toList());
     public static final List<String> DOOR_COMPONENT_NAME = of("С квартиры", "З квартири", "Door").collect(toList());
