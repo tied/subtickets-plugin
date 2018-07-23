@@ -27,5 +27,6 @@ public class Constants {
     public static final String BLOCKED_BY_LINK_TYPE_NAME = "заблокировона";
 
     public static final String ROOMERS_URL = "http://localhost:3000/roomers";
+    public static final String PAYMENTS_CREATE_URL = "http://localhost:3000/paymentscreate";
 
 }

@@ -48,6 +48,7 @@ import static com.subtickets.Constants.DOOR_COMPONENT_NAME;
 import static com.subtickets.Constants.ESTEBLISHED_FUND_TYPE_VALUE;
 import static com.subtickets.Constants.FUND_COLLECTION_MANNER_FIELD_NAME;
 import static com.subtickets.Constants.FUND_TYPE_FIELD_NAME;
+import static com.subtickets.Constants.PAYMENTS_CREATE_URL;
 import static com.subtickets.Constants.PAYMENT_ISSUE_TYPE_NAME;
 import static com.subtickets.Constants.PAYMENT_SUB_ISSUE_TYPE_NAME;
 import static com.subtickets.Constants.PLANNED_COSTS_FIELD_NAME;
@@ -149,16 +150,21 @@ public class SubTicketsServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         ApplicationUser applicationUser = jiraUserManager.getUserByKey(userManager.getRemoteUser(req).getUserKey().getStringValue());
-        MutableIssue issue = issueService.getIssue(applicationUser, req.getParameter("id")).getIssue();
+        String issueId = req.getParameter("id");
+        MutableIssue issue = issueService.getIssue(applicationUser, issueId).getIssue();
 
         try {
-            String fundType = getFundType(issue);
-            Predicate<String> candidateMatch = getCandidateMatch(fundType);
-            if (ESTEBLISHED_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
-                createMonthlyPaymentsSubIssues(applicationUser, issue);
-            } else if (CUSTOM_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
-                createFundPaymentSubIssues(applicationUser, issue);
-            }
+//            String fundType = getFundType(issue);
+//            Predicate<String> candidateMatch = getCandidateMatch(fundType);
+//            if (ESTEBLISHED_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
+//                createMonthlyPaymentsSubIssues(applicationUser, issue);
+//            } else if (CUSTOM_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
+//                createFundPaymentSubIssues(applicationUser, issue);
+//            }
+            Request<?, ?> request = requestFactory.createRequest(Request.MethodType.POST, PAYMENTS_CREATE_URL + "?id=" + issueId);
+            request.setSoTimeout(200000);
+            String execute = request.execute();
+            System.out.println(execute);
         } catch (ResponseException e) {
             e.printStackTrace();
         }
