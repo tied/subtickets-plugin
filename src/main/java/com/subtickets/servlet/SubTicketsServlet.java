@@ -4,7 +4,6 @@ import com.atlassian.jira.bc.issue.IssueService;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.config.SubTaskManager;
 import com.atlassian.jira.exception.CreateException;
-import com.atlassian.jira.issue.CustomFieldManager;
 import com.atlassian.jira.issue.Issue;
 import com.atlassian.jira.issue.IssueInputParameters;
 import com.atlassian.jira.issue.IssueInputParametersImpl;
@@ -43,12 +42,10 @@ import java.util.stream.Stream;
 import static com.subtickets.Constants.ACTUAL_COSTS_FIELD_NAME;
 import static com.subtickets.Constants.AUTO_COMPONENT_NAME;
 import static com.subtickets.Constants.BLOCKED_BY_LINK_TYPE_NAME;
-import static com.subtickets.Constants.CUSTOM_FUND_TYPE_VALUE;
 import static com.subtickets.Constants.DOOR_COMPONENT_NAME;
-import static com.subtickets.Constants.ESTEBLISHED_FUND_TYPE_VALUE;
 import static com.subtickets.Constants.FUND_COLLECTION_MANNER_FIELD_NAME;
 import static com.subtickets.Constants.FUND_TYPE_FIELD_NAME;
-import static com.subtickets.Constants.PAYMENTS_CREATE_URL;
+import static com.subtickets.Constants.CREATE_SUBS_URL;
 import static com.subtickets.Constants.PAYMENT_ISSUE_TYPE_NAME;
 import static com.subtickets.Constants.PAYMENT_SUB_ISSUE_TYPE_NAME;
 import static com.subtickets.Constants.PLANNED_COSTS_FIELD_NAME;
@@ -161,7 +158,7 @@ public class SubTicketsServlet extends HttpServlet {
 //            } else if (CUSTOM_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
 //                createFundPaymentSubIssues(applicationUser, issue);
 //            }
-            Request<?, ?> request = requestFactory.createRequest(Request.MethodType.POST, PAYMENTS_CREATE_URL + "?id=" + issueId);
+            Request<?, ?> request = requestFactory.createRequest(Request.MethodType.POST, CREATE_SUBS_URL + "?id=" + issueId);
             request.setSoTimeout(200000);
             String execute = request.execute();
             System.out.println(execute);

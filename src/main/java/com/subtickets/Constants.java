@@ -8,6 +8,7 @@ import static java.util.stream.Stream.of;
 public class Constants {
 
     public static final String PAYMENT_ISSUE_TYPE_NAME = "Payment";
+    public static final String VOTING_ISSUE_TYPE_NAME = "Voting";
     public static final String PAYMENT_SUB_ISSUE_TYPE_NAME = "Payment Notify";
 
     public static final String PLANNED_COSTS_FIELD_NAME = "Planned Costs";
@@ -27,6 +28,6 @@ public class Constants {
     public static final String BLOCKED_BY_LINK_TYPE_NAME = "заблокировона";
 
     public static final String ROOMERS_URL = "http://localhost:3000/roomers";
-    public static final String PAYMENTS_CREATE_URL = "http://localhost:3000/paymentscreate";
+    public static final String CREATE_SUBS_URL = "http://localhost:3000/createsubs";
 
 }

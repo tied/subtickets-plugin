@@ -12,7 +12,7 @@
     <resource type="i18n" name="i18n" location="subtickets-plugin"/>
     <web-item name="Sub-Tickets Creation Item" i18n-name-key="subtickets-creation-link.name" key="subtickets-creation-link" section="operations-top-level" weight="2">
         <description key="subtickets-creation-link.description">The Sub-Tickets Creation Item Plugin</description>
-        <label key="subtickets-creation-link.label"></label>
+        <label key="subtickets-creation-link.label"/>
         <link linkId="subtickets-creation-link">/plugins/servlet/create-subtickets?id=$issue.key</link>
         <conditions type="AND">
             <condition class="com.subtickets.conditions.AccountantRoleCondition"/>
@@ -23,5 +23,20 @@
     <servlet name="Sub-Tickets Servlet" i18n-name-key="subtickets-servlet.name" key="subtickets-servlet" class="com.subtickets.servlet.SubTicketsServlet">
         <description key="subtickets-servlet.description">The Sub-Tickets Plugin</description>
         <url-pattern>/create-subtickets</url-pattern>
+    </servlet>
+
+    <web-item name="Votings Creation Item" i18n-name-key="votings-creation-link.name" key="votings-creation-link" section="operations-top-level" weight="2">
+        <description key="votings-creation-link.description">The Sub-Votings Tickets Creation</description>
+        <label key="votings-creation-link.label"/>
+        <link linkId="votings-creation-link">/plugins/servlet/create-votings?id=$issue.key</link>
+        <conditions type="AND">
+            <!--<condition class="com.subtickets.conditions.AccountantRoleCondition"/>-->
+            <!--<condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>-->
+            <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
+        </conditions>
+    </web-item>
+    <servlet name="Votings Servlet" i18n-name-key="votings-servlet.name" key="votings-servlet" class="com.subtickets.servlet.VotingsServlet">
+        <description key="votings-servlet.description">The Votings Plugin</description>
+        <url-pattern>/create-votings</url-pattern>
     </servlet>
 </atlassian-plugin>
