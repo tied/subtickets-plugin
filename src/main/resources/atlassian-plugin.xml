@@ -30,8 +30,8 @@
         <label key="votings-creation-link.label"/>
         <link linkId="votings-creation-link">/plugins/servlet/create-votings?id=$issue.key</link>
         <conditions type="AND">
-            <!--<condition class="com.subtickets.conditions.AccountantRoleCondition"/>-->
-            <!--<condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>-->
+            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
+            <condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>
             <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
         </conditions>
     </web-item>

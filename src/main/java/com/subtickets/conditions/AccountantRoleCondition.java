@@ -1,28 +1,11 @@
 package com.subtickets.conditions;
 
-import com.atlassian.jira.component.ComponentAccessor;
-import com.atlassian.jira.plugin.webfragment.conditions.AbstractWebCondition;
-import com.atlassian.jira.plugin.webfragment.model.JiraHelper;
-import com.atlassian.jira.security.roles.ProjectRole;
-import com.atlassian.jira.security.roles.ProjectRoleManager;
-import com.atlassian.jira.user.ApplicationUser;
+import static com.subtickets.Constants.ACCOUNTANT_ROLE_NAME;
 
-public class AccountantRoleCondition extends AbstractWebCondition {
-
-    private static final String ACCOUNTANT_ROLE_NAME = "Accountant";
-
-    private ProjectRoleManager roleManager;
-
-    private ProjectRole accountantRole;
-
-    public AccountantRoleCondition() {
-        roleManager = ComponentAccessor.getComponent(ProjectRoleManager.class);
-        accountantRole = roleManager.getProjectRole(ACCOUNTANT_ROLE_NAME);
-    }
+public class AccountantRoleCondition extends HasRoleCondition {
 
     @Override
-    public boolean shouldDisplay(ApplicationUser user, JiraHelper jiraHelper) {
-        return roleManager.isUserInProjectRole(user, accountantRole, jiraHelper.getProject());
+    protected String getRole() {
+        return ACCOUNTANT_ROLE_NAME;
     }
-
 }
