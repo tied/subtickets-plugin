@@ -39,4 +39,20 @@
         <description key="votings-servlet.description">The Votings Plugin</description>
         <url-pattern>/create-votings</url-pattern>
     </servlet>
+
+    <web-item name="Voting Results Item" i18n-name-key="voting-results-link.name" key="voting-results-link" section="operations-top-level" weight="2">
+        <description key="voting-results-link.description">Voting results</description>
+        <label key="voting-results-link.label"/>
+        <link linkId="voting-results-link">/plugins/servlet/get-voting-results?id=$issue.key</link>
+        <conditions type="AND">
+            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
+            <condition class="com.subtickets.conditions.SubIssuesPresentCondition"/>
+            <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
+        </conditions>
+    </web-item>
+    <servlet name="Voting Results Servlet" i18n-name-key="voting-results-servlet.name" key="voting-results-servlet" class="com.subtickets.servlet.VotingResultsServlet">
+        <description key="voting-servlet.description">The Voting Plugin</description>
+        <url-pattern>/get-voting-results</url-pattern>
+    </servlet>
+
 </atlassian-plugin>
