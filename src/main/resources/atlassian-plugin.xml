@@ -55,4 +55,20 @@
         <url-pattern>/get-voting-results</url-pattern>
     </servlet>
 
+    <web-item name="Voting session template generation" i18n-name-key="voting-template-gen.name" key="voting-template-gen" section="operations-top-level" weight="2">
+        <description key="voting-template-gen.description">Voting session template generation</description>
+        <label key="voting-template-gen.label"/>
+        <link linkId="voting-template-gen">/plugins/servlet/voting-template-gen?id=$issue.key</link>
+        <conditions type="AND">
+            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
+            <condition class="com.subtickets.conditions.VotingIssuesLinked"/>
+            <condition class="com.subtickets.conditions.VotingSessionIssueType"/>
+            <condition class="com.subtickets.conditions.VotingTemplatePresent" invert="true"/>
+        </conditions>
+    </web-item>
+    <servlet name="Voting Template Generation Servlet" i18n-name-key="voting-template-gen.name" key="voting-template-gen-servlet" class="com.subtickets.servlet.VotingResultsServlet">
+        <description key="voting-template-gen-servlet.description">The Voting Template Generation Plugin</description>
+        <url-pattern>/voting-template-gen</url-pattern>
+    </servlet>
+
 </atlassian-plugin>

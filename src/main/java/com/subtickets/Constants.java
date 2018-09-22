@@ -9,6 +9,7 @@ public class Constants {
 
     public static final String PAYMENT_ISSUE_TYPE_NAME = "Payment";
     public static final String VOTING_ISSUE_TYPE_NAME = "Voting";
+    public static final String VOTING_SESSION_ISSUE_TYPE_NAME = "Voting session";
     public static final String PAYMENT_SUB_ISSUE_TYPE_NAME = "Payment Notify";
 
     public static final String PLANNED_COSTS_FIELD_NAME = "Planned Costs";
@@ -30,8 +31,11 @@ public class Constants {
     public static final String ROOMERS_URL = "http://localhost:3000/roomers";
     public static final String CREATE_SUBS_URL = "http://localhost:3000/createsubs";
     public static final String GET_VOTING_RESULTS_URL = "http://localhost:3000/getvotingresults";
+    public static final String GENERATE_VOTING_TEMPLATE_URL = "http://localhost:3000/genvotingtemplate";
 
     public static final String ACCOUNTANT_ROLE_NAME = "Accountant";
     public static final String ADMIN_ROLE_NAME = "Administrators";
+
+    public static final String VOTING_TEMPLATE_FILE_NAME = "Template.pdf";
 
 }
