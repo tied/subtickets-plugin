@@ -25,21 +25,6 @@
         <url-pattern>/create-subtickets</url-pattern>
     </servlet>
 
-    <web-item name="Votings Creation Item" i18n-name-key="votings-creation-link.name" key="votings-creation-link" section="operations-top-level" weight="2">
-        <description key="votings-creation-link.description">The Sub-Votings Tickets Creation</description>
-        <label key="votings-creation-link.label"/>
-        <link linkId="votings-creation-link">/plugins/servlet/create-votings?id=$issue.key</link>
-        <conditions type="AND">
-            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
-            <condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>
-            <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
-        </conditions>
-    </web-item>
-    <servlet name="Votings Servlet" i18n-name-key="votings-servlet.name" key="votings-servlet" class="com.subtickets.servlet.VotingsServlet">
-        <description key="votings-servlet.description">The Votings Plugin</description>
-        <url-pattern>/create-votings</url-pattern>
-    </servlet>
-
     <web-item name="Voting Results Item" i18n-name-key="voting-results-link.name" key="voting-results-link" section="operations-top-level" weight="2">
         <description key="voting-results-link.description">Voting results</description>
         <label key="voting-results-link.label"/>
@@ -47,7 +32,10 @@
         <conditions type="AND">
             <condition class="com.subtickets.conditions.AdminRoleCondition"/>
             <condition class="com.subtickets.conditions.SubIssuesPresentCondition"/>
-            <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
+            <conditions type="OR">
+                <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
+                <condition class="com.subtickets.conditions.VotingSessionIssueType"/>
+            </conditions>
         </conditions>
     </web-item>
     <servlet name="Voting Results Servlet" i18n-name-key="voting-results-servlet.name" key="voting-results-servlet" class="com.subtickets.servlet.VotingResultsServlet">
@@ -66,7 +54,7 @@
             <condition class="com.subtickets.conditions.VotingTemplatePresent" invert="true"/>
         </conditions>
     </web-item>
-    <servlet name="Voting Template Generation Servlet" i18n-name-key="voting-template-gen.name" key="voting-template-gen-servlet" class="com.subtickets.servlet.VotingResultsServlet">
+    <servlet name="Voting Template Generation Servlet" i18n-name-key="voting-template-gen.name" key="voting-template-gen-servlet" class="com.subtickets.servlet.VotingTemplateGenServlet">
         <description key="voting-template-gen-servlet.description">The Voting Template Generation Plugin</description>
         <url-pattern>/voting-template-gen</url-pattern>
     </servlet>
