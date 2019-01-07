@@ -7,6 +7,7 @@ import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.config.IssueTypeService;
 import com.atlassian.jira.config.SubTaskManager;
 import com.atlassian.jira.exception.CreateException;
+import com.atlassian.jira.issue.CustomFieldManager;
 import com.atlassian.jira.issue.Issue;
 import com.atlassian.jira.issue.IssueInputParameters;
 import com.atlassian.jira.issue.IssueInputParametersImpl;
@@ -28,6 +29,7 @@ import com.atlassian.sal.api.net.RequestFactory;
 import com.atlassian.sal.api.net.ResponseException;
 import com.subtickets.roomers.Roomer;
 import com.subtickets.roomers.Roomers;
+import org.ofbiz.core.entity.GenericEntityException;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -157,9 +159,49 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private void bootstrap() {
+        initDBTable();
         createProject();
         createIssueTypes();
-        initDBTable();
+        createCustomFields();
+    }
+
+    private void createCustomFields() {
+        createNumberField("Actual Costs");
+        createSelectField("Fund collection manner");
+        createSelectField("Fund type");
+        createNumberField("Planned Costs");
+        createTextField("Room");
+        createTextField("Roomer");
+        createNumberField("Vote Square");
+    }
+
+    private void createTextField(String name) {
+        createCustomField(name, "textfield", "textsearcher");
+    }
+
+    private void createNumberField(String name) {
+        createCustomField(name, "float", "exactnumber");
+    }
+
+    private void createSelectField(String name) {
+        createCustomField(name, "select", "multiselectsearcher");
+    }
+
+    private void createCustomField(String name, String type, String searcher) {
+        CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
+        Collection<CustomField> customFields = customFieldManager.getCustomFieldObjectsByName(name);
+        if (customFields.isEmpty()) {
+            try {
+                customFieldManager.createCustomField(name, null,
+                        customFieldManager.getCustomFieldType("com.atlassian.jira.plugin.system.customfieldtypes:" + type),
+                        customFieldManager.getCustomFieldSearcher("com.atlassian.jira.plugin.system.customfieldtypes:" + searcher),
+                        null, null);
+            } catch (GenericEntityException e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Custom field with the name \"" + name + "\" already exists");
+        }
     }
 
     private void initDBTable() {
@@ -233,7 +275,6 @@ public class SubTicketsServlet extends HttpServlet {
         createIssueType("Task");
         createIssueType("Voting");
         createIssueType("Voting session");
-        createIssueType("TEST");
         createSubIssueType("Payment Notify");
         createSubIssueType("Sub-task");
         createSubIssueType("Voting Notify");
