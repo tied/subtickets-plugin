@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.shepilov.plugins</groupId>
     <artifactId>subtickets-plugin</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.1-SNAPSHOT</version>
     <organization>
         <name>Example Company</name>
         <url>http://www.example.com/</url>
@@ -16,12 +16,33 @@
 
     <repositories>
         <repository>
-            <id>atlassian</id>
-            <url>https://maven.atlassian.com/content/repositories/atlassian-public/</url>
+            <id>atlassian-public</id>
+            <url>https://packages.atlassian.com/maven/repository/public</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+                <checksumPolicy>warn</checksumPolicy>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+                <checksumPolicy>warn</checksumPolicy>
+            </releases>
         </repository>
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>5.1.6</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.2.5</version>
+            <scope>compile</scope>
+        </dependency>
         <dependency>
             <groupId>com.atlassian.jira</groupId>
             <artifactId>jira-api</artifactId>
@@ -149,6 +170,11 @@
                         <!--<Export-Package></Export-Package>-->
                         <!-- Add package import here -->
                         <Import-Package>
+                            waffle.windows.auth.*;resolution:="optional",
+                            org.osgi.service.*;resolution:="optional",
+                            com.sun.jna.*;resolution:="optional",
+                            com.mchange.v2.c3p0.*;resolution:="optional",
+                            org.jboss.*;resolution:="optional",
                             org.springframework.osgi.*;resolution:="optional",
                             org.eclipse.gemini.blueprint.*;resolution:="optional",
                             *
@@ -184,7 +210,7 @@
         </plugins>
     </build>
     <properties>
-        <jira.version>7.2.4</jira.version>
+        <jira.version>7.2.13</jira.version>
         <amps.version>6.3.13</amps.version>
         <plugin.testrunner.version>1.2.3</plugin.testrunner.version>
         <atlassian.spring.scanner.version>1.2.13</atlassian.spring.scanner.version>

@@ -1,7 +1,10 @@
 package com.subtickets.servlet;
 
 import com.atlassian.jira.bc.issue.IssueService;
+import com.atlassian.jira.bc.project.ProjectCreationData;
+import com.atlassian.jira.bc.project.ProjectService;
 import com.atlassian.jira.component.ComponentAccessor;
+import com.atlassian.jira.config.IssueTypeService;
 import com.atlassian.jira.config.SubTaskManager;
 import com.atlassian.jira.exception.CreateException;
 import com.atlassian.jira.issue.CustomFieldManager;
@@ -15,8 +18,8 @@ import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.issue.label.LabelManager;
 import com.atlassian.jira.issue.link.IssueLinkManager;
 import com.atlassian.jira.issue.link.IssueLinkType;
-import com.atlassian.jira.issue.link.IssueLinkTypeManager;
 import com.atlassian.jira.issue.util.DefaultIssueChangeHolder;
+import com.atlassian.jira.project.AssigneeTypes;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.user.UserDetails;
 import com.atlassian.jira.user.util.UserManager;
@@ -26,25 +29,31 @@ import com.atlassian.sal.api.net.RequestFactory;
 import com.atlassian.sal.api.net.ResponseException;
 import com.subtickets.roomers.Roomer;
 import com.subtickets.roomers.Roomers;
+import org.ofbiz.core.entity.GenericEntityException;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.Unmarshaller;
+import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.subtickets.Constants.ACTUAL_COSTS_FIELD_NAME;
 import static com.subtickets.Constants.AUTO_COMPONENT_NAME;
-import static com.subtickets.Constants.BLOCKED_BY_LINK_TYPE_NAME;
-import static com.subtickets.Constants.CUSTOM_FUND_TYPE_VALUE;
+import static com.subtickets.Constants.CREATE_SUBS_URL;
 import static com.subtickets.Constants.DOOR_COMPONENT_NAME;
-import static com.subtickets.Constants.ESTEBLISHED_FUND_TYPE_VALUE;
 import static com.subtickets.Constants.FUND_COLLECTION_MANNER_FIELD_NAME;
 import static com.subtickets.Constants.FUND_TYPE_FIELD_NAME;
 import static com.subtickets.Constants.PAYMENT_ISSUE_TYPE_NAME;
@@ -67,6 +76,7 @@ public class SubTicketsServlet extends HttpServlet {
     private IssueType fundPaymentSubIssueType;
 
     private ApplicationUser roomerUser;
+    private ApplicationUser admin;
 
     private IssueLinkType blockedBy;
 
@@ -114,12 +124,26 @@ public class SubTicketsServlet extends HttpServlet {
                 e.printStackTrace();
             }
         }
+        admin = jiraUserManager.getUserByName("admin");
 
-        CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
-        ACTUAL_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(ACTUAL_COSTS_FIELD_NAME);
-        PLANNED_COSTS_FIELD = customFieldManager.getCustomFieldObjectByName(PLANNED_COSTS_FIELD_NAME);
-        FUND_TYPE_FIELD = customFieldManager.getCustomFieldObjectByName(FUND_TYPE_FIELD_NAME);
-        FUND_COLLECTION_MANNER_TYPE_FIELD = customFieldManager.getCustomFieldObjectByName(FUND_COLLECTION_MANNER_FIELD_NAME);
+        bootstrap();
+
+        ComponentAccessor.getCustomFieldManager().getCustomFieldObjects().forEach(customField -> {
+            switch (customField.getUntranslatedName()) {
+                case ACTUAL_COSTS_FIELD_NAME:
+                    ACTUAL_COSTS_FIELD = customField;
+                    break;
+                case PLANNED_COSTS_FIELD_NAME:
+                    PLANNED_COSTS_FIELD = customField;
+                    break;
+                case FUND_TYPE_FIELD_NAME:
+                    FUND_TYPE_FIELD = customField;
+                    break;
+                case FUND_COLLECTION_MANNER_FIELD_NAME:
+                    FUND_COLLECTION_MANNER_TYPE_FIELD = customField;
+                    break;
+            }
+        });
 
         Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
         issueTypes.forEach(type -> {
@@ -134,17 +158,169 @@ public class SubTicketsServlet extends HttpServlet {
         });
     }
 
+    private void bootstrap() {
+        initDBTable();
+        createProject();
+        createIssueTypes();
+        createCustomFields();
+    }
+
+    private void createCustomFields() {
+        createNumberField("Actual Costs");
+        createSelectField("Fund collection manner");
+        createSelectField("Fund type");
+        createNumberField("Planned Costs");
+        createTextField("Room");
+        createTextField("Roomer");
+        createNumberField("Vote Square");
+    }
+
+    private void createTextField(String name) {
+        createCustomField(name, "textfield", "textsearcher");
+    }
+
+    private void createNumberField(String name) {
+        createCustomField(name, "float", "exactnumber");
+    }
+
+    private void createSelectField(String name) {
+        createCustomField(name, "select", "multiselectsearcher");
+    }
+
+    private void createCustomField(String name, String type, String searcher) {
+        CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
+        Collection<CustomField> customFields = customFieldManager.getCustomFieldObjectsByName(name);
+        if (customFields.isEmpty()) {
+            try {
+                customFieldManager.createCustomField(name, null,
+                        customFieldManager.getCustomFieldType("com.atlassian.jira.plugin.system.customfieldtypes:" + type),
+                        customFieldManager.getCustomFieldSearcher("com.atlassian.jira.plugin.system.customfieldtypes:" + searcher),
+                        null, null);
+            } catch (GenericEntityException e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Custom field with the name \"" + name + "\" already exists");
+        }
+    }
+
+    private void initDBTable() {
+        DataSourceConfig dataSourceConfig = parseDbConfig().dataSourceConfig;
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            Class.forName(dataSourceConfig.driveClassName);
+            conn = DriverManager.getConnection(dataSourceConfig.url, dataSourceConfig.username, dataSourceConfig.password);
+            stmt = conn.createStatement();
+            boolean tableExists = conn.getMetaData().getTables(null, null, "cwd_user_pass", null).next();
+            if (!tableExists) {
+                stmt.executeUpdate("CREATE table cwd_user_pass " +
+                        "(pwd_hash character varying(255) NOT NULL, " +
+                        "fk_user_id numeric(18,0) NOT NULL, " +
+                        "change_stamp timestamp without time zone DEFAULT now(), " +
+                        "CONSTRAINT \"PK_cwd_user_pass\" PRIMARY KEY (fk_user_id, pwd_hash), " +
+                        "CONSTRAINT \"FK_cwd_user_id\" FOREIGN KEY (fk_user_id) " +
+                        "REFERENCES cwd_user (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE) " +
+                        "WITH (OIDS=FALSE);");
+            } else {
+                System.out.println("Table cwd_user_pass exists");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                stmt.close();
+                conn.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private JiraDBConfig parseDbConfig() {
+        try {
+            String catalinaBase = System.getenv("CATALINA_BASE");
+            File dbConfig = new File(new File(catalinaBase).getParent(), "Application Data/JIRA/dbconfig.xml");
+            JAXBContext context = JAXBContext.newInstance(JiraDBConfig.class);
+            Unmarshaller unmarshaller = context.createUnmarshaller();
+            return (JiraDBConfig) unmarshaller.unmarshal(dbConfig);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+    private void createProject() {
+        ProjectService projectService = ComponentAccessor.getComponent(ProjectService.class);
+        ProjectService.CreateProjectValidationResult createProjectValidationResult = projectService.validateCreateProject(admin, new ProjectCreationData.Builder()
+                .withName("New OSMD")
+                .withKey("NSMD")
+                .withType("business")
+                .withLead(admin)
+                .withAssigneeType(AssigneeTypes.UNASSIGNED)
+                .build());
+        if (createProjectValidationResult.isValid()) {
+            projectService.createProject(createProjectValidationResult);
+        } else {
+            System.err.println(Arrays.toString(createProjectValidationResult.getErrorCollection().getErrors().entrySet().toArray()));
+        }
+    }
+
+    private void createIssueTypes() {
+        createIssueType("Improvement");
+        createIssueType("Incident");
+        createIssueType("Notification");
+        createIssueType("Payment");
+        createIssueType("Task");
+        createIssueType("Voting");
+        createIssueType("Voting session");
+        createSubIssueType("Payment Notify");
+        createSubIssueType("Sub-task");
+        createSubIssueType("Voting Notify");
+        createSubIssueType("Test Notify");
+    }
+
+    private void createIssueType(String name) {
+        createIssueType(name, false);
+    }
+
+    private void createSubIssueType(String name) {
+        createIssueType(name, true);
+    }
+
+    private void createIssueType(String name, boolean subTask) {
+        IssueTypeService issueTypeService = ComponentAccessor.getComponent(IssueTypeService.class);
+        IssueTypeService.IssueTypeCreateInput issueTypeCreateInput = new IssueTypeService.IssueTypeCreateInput.Builder()
+                .setName(name)
+                .setType(subTask ? IssueTypeService.IssueTypeCreateInput.Type.SUBTASK : IssueTypeService.IssueTypeCreateInput.Type.STANDARD)
+                .build();
+        IssueTypeService.CreateValidationResult createValidationResult = issueTypeService.validateCreateIssueType(admin, issueTypeCreateInput);
+        if (createValidationResult.isValid()) {
+            issueTypeService.createIssueType(admin, createValidationResult);
+        } else {
+            System.err.println(Arrays.toString(createValidationResult.getErrorCollection().getErrors().entrySet().toArray()));
+        }
+    }
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         ApplicationUser applicationUser = jiraUserManager.getUserByKey(userManager.getRemoteUser(req).getUserKey().getStringValue());
-        MutableIssue issue = issueService.getIssue(applicationUser, req.getParameter("id")).getIssue();
+        String issueId = req.getParameter("id");
+        MutableIssue issue = issueService.getIssue(applicationUser, issueId).getIssue();
 
         try {
-            if (getFundType(issue).equals(ESTEBLISHED_FUND_TYPE_VALUE)) {
-                createMonthlyPaymentsSubIssues(applicationUser, issue);
-            } else if (getFundType(issue).equals(CUSTOM_FUND_TYPE_VALUE)) {
-                createFundPaymentSubIssues(applicationUser, issue);
-            }
+//            String fundType = getFundType(issue);
+//            Predicate<String> candidateMatch = getCandidateMatch(fundType);
+//            if (ESTEBLISHED_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
+//                createMonthlyPaymentsSubIssues(applicationUser, issue);
+//            } else if (CUSTOM_FUND_TYPE_VALUE.stream().anyMatch(candidateMatch)) {
+//                createFundPaymentSubIssues(applicationUser, issue);
+//            }
+            Request<?, ?> request = requestFactory.createRequest(Request.MethodType.POST, CREATE_SUBS_URL + "?id=" + issueId);
+            request.setSoTimeout(200000);
+            String execute = request.execute();
+            System.out.println(execute);
         } catch (ResponseException e) {
             e.printStackTrace();
         }
@@ -165,16 +341,14 @@ public class SubTicketsServlet extends HttpServlet {
     }
 
     private void createFundPaymentSubIssues(ApplicationUser user, Issue issue) throws ResponseException {
-        switch (getCollectionManner(issue)) {
-            case AUTO_COMPONENT_NAME:
-                createAutoFundPayments(user, issue);
-                break;
-            case DOOR_COMPONENT_NAME:
-                createDoorFundPayments(user, issue);
-                break;
-            case SQUARE_COMPONENT_NAME:
-                createSquareFundPayment(user, issue);
-                break;
+        String collectionManner = getCollectionManner(issue);
+        Predicate<String> candidateMatch = getCandidateMatch(collectionManner);
+        if (AUTO_COMPONENT_NAME.stream().anyMatch(candidateMatch)) {
+            createAutoFundPayments(user, issue);
+        } else if (DOOR_COMPONENT_NAME.stream().anyMatch(candidateMatch)) {
+            createDoorFundPayments(user, issue);
+        } else if (SQUARE_COMPONENT_NAME.stream().anyMatch(candidateMatch)) {
+            createSquareFundPayment(user, issue);
         }
     }
 
@@ -206,7 +380,7 @@ public class SubTicketsServlet extends HttpServlet {
                     Issue subIssue = doCreateSubIssue(user, issue, parameters);
                     if (subIssue != null) {
                         setPlannedCosts(subIssue, singlePayment * items.apply(roomer).doubleValue());
-                        String[] derivedLabels = labels != null ? labels.apply(roomer) : new String [] {};
+                        String[] derivedLabels = labels != null ? labels.apply(roomer) : new String[]{};
                         addLabels(user, subIssue, Stream.concat(Arrays.stream(derivedLabels), Stream.of(getInitials(roomer.fio))).collect(toSet()));
                     }
                 });
@@ -277,5 +451,9 @@ public class SubTicketsServlet extends HttpServlet {
 
     private void addLabels(ApplicationUser user, Issue issue, String... labels) {
         addLabels(user, issue, Stream.of(labels).collect(toSet()));
+    }
+
+    private Predicate<String> getCandidateMatch(String target) {
+        return candidate -> candidate.equals(target);
     }
 }
