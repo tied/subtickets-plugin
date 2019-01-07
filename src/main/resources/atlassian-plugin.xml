@@ -10,6 +10,8 @@
     </plugin-info>
     <!-- add our i18n resource -->
     <resource type="i18n" name="i18n" location="subtickets-plugin"/>
+
+    <!--SubTickets-->
     <web-item name="Sub-Tickets Creation Item" i18n-name-key="subtickets-creation-link.name" key="subtickets-creation-link" section="operations-top-level" weight="2">
         <description key="subtickets-creation-link.description">The Sub-Tickets Creation Item Plugin</description>
         <label key="subtickets-creation-link.label"/>
@@ -25,16 +27,22 @@
         <url-pattern>/create-subtickets</url-pattern>
     </servlet>
 
+    <!--Votings results-->
     <web-item name="Voting Results Item" i18n-name-key="voting-results-link.name" key="voting-results-link" section="operations-top-level" weight="2">
         <description key="voting-results-link.description">Voting results</description>
         <label key="voting-results-link.label"/>
         <link linkId="voting-results-link">/plugins/servlet/get-voting-results?id=$issue.key</link>
         <conditions type="AND">
             <condition class="com.subtickets.conditions.AdminRoleCondition"/>
-            <condition class="com.subtickets.conditions.SubIssuesPresentCondition"/>
             <conditions type="OR">
-                <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
-                <condition class="com.subtickets.conditions.VotingSessionIssueType"/>
+                <conditions type="AND">
+                    <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
+                    <condition class="com.subtickets.conditions.SubIssuesPresentCondition"/>
+                </conditions>
+                <conditions type="AND">
+                    <condition class="com.subtickets.conditions.VotingSessionIssueType"/>
+                    <condition class="com.subtickets.conditions.VotingTemplatePresent"/>
+                </conditions>
             </conditions>
         </conditions>
     </web-item>
@@ -43,10 +51,11 @@
         <url-pattern>/get-voting-results</url-pattern>
     </servlet>
 
-    <web-item name="Voting session template generation" i18n-name-key="voting-template-gen.name" key="voting-template-gen" section="operations-top-level" weight="2">
-        <description key="voting-template-gen.description">Voting session template generation</description>
-        <label key="voting-template-gen.label"/>
-        <link linkId="voting-template-gen">/plugins/servlet/voting-template-gen?id=$issue.key</link>
+    <!--Votings session-->
+    <web-item name="Start voting session" i18n-name-key="voting-session-start.name" key="voting-session-start" section="operations-top-level" weight="2">
+        <description key="voting-session-start.description">Voting session start</description>
+        <label key="voting-session-start.label"/>
+        <link linkId="voting-session-start">/plugins/servlet/voting-session-start?id=$issue.key</link>
         <conditions type="AND">
             <condition class="com.subtickets.conditions.AdminRoleCondition"/>
             <condition class="com.subtickets.conditions.VotingIssuesLinked"/>
@@ -54,9 +63,9 @@
             <condition class="com.subtickets.conditions.VotingTemplatePresent" invert="true"/>
         </conditions>
     </web-item>
-    <servlet name="Voting Template Generation Servlet" i18n-name-key="voting-template-gen.name" key="voting-template-gen-servlet" class="com.subtickets.servlet.VotingTemplateGenServlet">
-        <description key="voting-template-gen-servlet.description">The Voting Template Generation Plugin</description>
-        <url-pattern>/voting-template-gen</url-pattern>
+    <servlet name="Voting Session Start Servlet" i18n-name-key="voting-session-start.name" key="voting-session-start-servlet" class="com.subtickets.servlet.VotingSessionStartServlet">
+        <description key="voting-template-gen-servlet.description">The Voting Session Start Plugin</description>
+        <url-pattern>/voting-session-start</url-pattern>
     </servlet>
 
 </atlassian-plugin>

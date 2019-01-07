@@ -31,11 +31,11 @@ public class Constants {
     public static final String ROOMERS_URL = "http://localhost:3000/roomers";
     public static final String CREATE_SUBS_URL = "http://localhost:3000/createsubs";
     public static final String GET_VOTING_RESULTS_URL = "http://localhost:3000/getvotingresults";
-    public static final String GENERATE_VOTING_TEMPLATE_URL = "http://localhost:3000/createvotingtemplate";
+    public static final String START_VOTING_SESSION_URL = "http://localhost:3000/startvotingsession";
 
     public static final String ACCOUNTANT_ROLE_NAME = "Accountant";
     public static final String ADMIN_ROLE_NAME = "Administrators";
 
-    public static final String VOTING_TEMPLATE_FILE_NAME = "Template.pdf";
+    public static final String VOTING_TEMPLATE_FILE_NAME = "Voting template.pdf";
 
 }
