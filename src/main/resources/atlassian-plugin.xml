@@ -68,4 +68,18 @@
         <url-pattern>/voting-session-start</url-pattern>
     </servlet>
 
+    <workflow-condition key="planned-costs-greater-than" name="Planned Costs Greater Than" i18n-name-key="planned-costs-greater-than.name"
+                        class="com.subtickets.workflow.EmptyContextConditionFactory">
+        <description key="planned-costs-greater-than.description">The Planned Costs Greater Than Plugin</description>
+        <condition-class>com.subtickets.workflow.PlannedCostsGE</condition-class>
+        <resource type="velocity" name="view" location="templates/conditions/planned-costs-greater-than.vm"/>
+    </workflow-condition>
+
+    <workflow-condition key="planned-costs-less-than" name="Planned Costs Less Than" i18n-name-key="planned-costs-less-than.name"
+                        class="com.subtickets.workflow.EmptyContextConditionFactory">
+        <description key="planned-costs-less-than.description">The Planned Costs Less Than Plugin</description>
+        <condition-class>com.subtickets.workflow.PlannedCostsL</condition-class>
+        <resource type="velocity" name="view" location="templates/conditions/planned-costs-less-than.vm"/>
+    </workflow-condition>
+
 </atlassian-plugin>

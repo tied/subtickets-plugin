@@ -38,4 +38,7 @@ public class Constants {
 
     public static final String VOTING_TEMPLATE_FILE_NAME = "Voting template.pdf";
 
+    public static final Float COSTS_THRESHOLD = 5000f;
+
+
 }
