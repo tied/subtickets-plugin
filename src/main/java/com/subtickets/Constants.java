@@ -35,7 +35,7 @@ public class Constants {
         public static final String VOTE_SQUARE = "Vote Square";
     }
 
-    public static enum StatusCategoryName {
+    public enum StatusCategoryName {
 
         TO_DO("To Do"), IN_PROGRESS("In progress"), DONE("Done");
 

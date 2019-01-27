@@ -6,14 +6,24 @@ import com.atlassian.jira.bc.config.StatusService;
 import com.atlassian.jira.bc.project.ProjectCreationData;
 import com.atlassian.jira.bc.project.ProjectService;
 import com.atlassian.jira.bc.projectroles.ProjectRoleService;
-import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.config.IssueTypeManager;
 import com.atlassian.jira.config.IssueTypeService;
 import com.atlassian.jira.config.StatusCategoryManager;
 import com.atlassian.jira.config.StatusManager;
 import com.atlassian.jira.issue.CustomFieldManager;
 import com.atlassian.jira.issue.fields.CustomField;
+import com.atlassian.jira.issue.fields.Field;
+import com.atlassian.jira.issue.fields.FieldException;
+import com.atlassian.jira.issue.fields.screen.FieldScreen;
+import com.atlassian.jira.issue.fields.screen.FieldScreenImpl;
+import com.atlassian.jira.issue.fields.screen.FieldScreenLayoutItem;
+import com.atlassian.jira.issue.fields.screen.FieldScreenScheme;
+import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeItemImpl;
+import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeManager;
+import com.atlassian.jira.issue.fields.screen.FieldScreenTab;
 import com.atlassian.jira.issue.issuetype.IssueType;
+import com.atlassian.jira.issue.operation.IssueOperations;
+import com.atlassian.jira.issue.operation.ScreenableIssueOperation;
 import com.atlassian.jira.issue.status.category.StatusCategory;
 import com.atlassian.jira.project.AssigneeTypes;
 import com.atlassian.jira.project.Project;
@@ -21,6 +31,11 @@ import com.atlassian.jira.security.roles.ProjectRoleImpl;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.util.ErrorCollection;
 import com.atlassian.jira.util.SimpleErrorCollection;
+import com.atlassian.jira.workflow.ConfigurableJiraWorkflow;
+import com.atlassian.jira.workflow.WorkflowManager;
+import com.atlassian.plugin.util.ClassLoaderUtils;
+import com.opensymphony.workflow.loader.WorkflowDescriptor;
+import com.opensymphony.workflow.loader.WorkflowLoader;
 import com.subtickets.Constants.StatusCategoryName;
 import com.subtickets.servlet.DataSourceConfig;
 import com.subtickets.servlet.JiraDBConfig;
@@ -41,6 +56,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.atlassian.jira.component.ComponentAccessor.getComponent;
+import static com.atlassian.jira.component.ComponentAccessor.getCustomFieldManager;
+import static com.atlassian.jira.component.ComponentAccessor.getFieldManager;
+import static com.atlassian.jira.component.ComponentAccessor.getFieldScreenManager;
+import static com.atlassian.jira.component.ComponentAccessor.getIssueTypeScreenSchemeManager;
+import static com.atlassian.jira.component.ComponentAccessor.getUserManager;
+import static com.atlassian.jira.component.ComponentAccessor.getWorkflowManager;
 import static com.subtickets.Constants.FieldNames.ACTUAL_COSTS;
 import static com.subtickets.Constants.FieldNames.FUND_COLLECTION_MANNER;
 import static com.subtickets.Constants.FieldNames.FUND_TYPE;
@@ -82,7 +104,7 @@ public class JiraConfiguration {
     public static Map<StatusCategoryName, String> statusCategoriesIcons = new HashMap<>();
 
     public JiraConfiguration() {
-        admin = ComponentAccessor.getUserManager().getUserByName("admin");
+        admin = getUserManager().getUserByName("admin");
         bootstrap();
     }
 
@@ -134,7 +156,7 @@ public class JiraConfiguration {
 
     private JiraDBConfig parseDbConfig() {
         try {
-            String catalinaBase = System.getenv("CATALINA_BASE");
+            String catalinaBase = System.getProperty("catalina.home");
             File dbConfig = new File(new File(catalinaBase).getParent(), "Application Data/JIRA/dbconfig.xml");
             JAXBContext context = JAXBContext.newInstance(JiraDBConfig.class);
             Unmarshaller unmarshaller = context.createUnmarshaller();
@@ -146,7 +168,7 @@ public class JiraConfiguration {
     }
 
     private void createProject() {
-        ProjectService projectService = ComponentAccessor.getComponent(ProjectService.class);
+        ProjectService projectService = getComponent(ProjectService.class);
         ProjectService.CreateProjectValidationResult createProjectValidationResult = projectService.validateCreateProject(admin, new ProjectCreationData.Builder()
                 .withName(NAME)
                 .withKey(KEY)
@@ -172,7 +194,7 @@ public class JiraConfiguration {
     }
 
     private void createProjectRole(String name) {
-        ProjectRoleService projectRoleService = ComponentAccessor.getComponent(ProjectRoleService.class);
+        ProjectRoleService projectRoleService = getComponent(ProjectRoleService.class);
         SimpleErrorCollection errors = new SimpleErrorCollection();
         projectRoleService.createProjectRole(admin, new ProjectRoleImpl(name, null), errors);
         logErrors(errors);
@@ -204,7 +226,7 @@ public class JiraConfiguration {
     }
 
     private void createIssueType(String name, boolean subTask) {
-        IssueTypeService issueTypeService = ComponentAccessor.getComponent(IssueTypeService.class);
+        IssueTypeService issueTypeService = getComponent(IssueTypeService.class);
         IssueTypeService.IssueTypeCreateInput issueTypeCreateInput = new IssueTypeService.IssueTypeCreateInput.Builder()
                 .setName(name)
                 .setType(subTask ? IssueTypeService.IssueTypeCreateInput.Type.SUBTASK : IssueTypeService.IssueTypeCreateInput.Type.STANDARD)
@@ -224,7 +246,7 @@ public class JiraConfiguration {
     }
 
     private IssueType findIssueType(String name) {
-        return ComponentAccessor.getComponent(IssueTypeManager.class)
+        return getComponent(IssueTypeManager.class)
                 .getIssueTypes()
                 .stream()
                 .filter(issueType -> issueType.getName().equalsIgnoreCase(name))
@@ -255,7 +277,7 @@ public class JiraConfiguration {
     }
 
     private void createCustomField(String name, String type, String searcher) {
-        CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
+        CustomFieldManager customFieldManager = getCustomFieldManager();
         Collection<CustomField> customFieldObjectsByName = customFieldManager.getCustomFieldObjectsByName(name);
         CustomField result = null;
         if (customFieldObjectsByName.isEmpty()) {
@@ -288,16 +310,26 @@ public class JiraConfiguration {
     }
 
     private void initStatusCategories() {
-        StatusCategoryManager statusCategoryManager = ComponentAccessor.getComponent(StatusCategoryManager.class);
-        StatusManager statusManager = ComponentAccessor.getComponent(StatusManager.class);
+        StatusManager statusManager = getComponent(StatusManager.class);
         List<StatusCategoryName> categories = Arrays.asList(StatusCategoryName.values());
-        categories.forEach(statusCategory -> statusCategories.put(statusCategory, statusCategoryManager.getStatusCategoryByName(statusCategory.value)));
+        categories.forEach(statusCategory -> statusCategories.put(statusCategory, findStatusCategory(statusCategory.value)));
         statusCategories.forEach((key, value) -> statusCategoriesIcons.put(key, statusManager.getStatuses().stream().filter(status -> status.getStatusCategory().equals(value))
                 .findFirst().get().getSimpleStatus().getIconUrl()));
     }
 
+    private StatusCategory findStatusCategory(String name) {
+        final String processedName = name.trim().replaceAll("_", " ");
+        StatusCategoryManager manager = getComponent(StatusCategoryManager.class);
+        return manager.getStatusCategories()
+                .stream()
+                .filter(category -> category.getName().equalsIgnoreCase(processedName)
+                        || category.getKey().equalsIgnoreCase(processedName)
+                        || category.getAliases().stream().anyMatch(alias -> alias.equalsIgnoreCase(processedName)))
+                .findFirst().get();
+    }
+
     private void createStatus(String name, StatusCategoryName category) {
-        StatusService statusService = ComponentAccessor.getComponent(StatusService.class);
+        StatusService statusService = getComponent(StatusService.class);
         String iconUrl = statusCategoriesIcons.get(category);
         StatusCategory statusCategory = statusCategories.get(category);
         ServiceResult validateCreateStatus = statusService.validateCreateStatus(admin, name, "", iconUrl, statusCategory);
@@ -306,6 +338,51 @@ public class JiraConfiguration {
         } else {
             logErrors(validateCreateStatus.getErrorCollection());
         }
+    }
+
+    private void createScreens() {
+    }
+
+    private void createScreen(String issueType, ScreenableIssueOperation operation, String... fields) {
+        FieldScreenScheme effectiveFieldScreenScheme = getIssueTypeScreenSchemeManager().getIssueTypeScreenScheme(project).getEffectiveFieldScreenScheme(issueTypes.get(issueType));
+        effectiveFieldScreenScheme.getName();
+        String screenName = issueType + " " + getCapitalizedName(operation);
+        FieldScreen fieldScreen = createFieldScreen(screenName, fields);
+        if (!effectiveFieldScreenScheme.getFieldScreen(operation).getName().equalsIgnoreCase(screenName)) {
+            effectiveFieldScreenScheme.removeFieldScreenSchemeItem(operation);
+            FieldScreenSchemeItemImpl fieldScreenSchemeItem = new FieldScreenSchemeItemImpl(getComponent(FieldScreenSchemeManager.class), getFieldScreenManager());
+            fieldScreenSchemeItem.setIssueOperation(operation);
+            fieldScreenSchemeItem.setFieldScreen(fieldScreen);
+            effectiveFieldScreenScheme.addFieldScreenSchemeItem(fieldScreenSchemeItem);
+        }
+    }
+
+    private FieldScreen createFieldScreen(String name, String... fields) {
+        FieldScreen fieldScreen = getFieldScreenManager().getFieldScreens().stream().filter(screen -> screen.getName().equals(name)).findAny().orElseGet(() -> {
+            FieldScreen screen = new FieldScreenImpl(getFieldScreenManager());
+            screen.setName(name);
+            screen.addTab("TAB");
+            screen.store();
+            return screen;
+        });
+        FieldScreenTab tab = fieldScreen.getTab(0);
+        tab.getFieldScreenLayoutItems().forEach(FieldScreenLayoutItem::remove);
+        Arrays.asList(fields).forEach(field -> tab.addFieldScreenLayoutItem(findField(field).getId()));
+        return fieldScreen;
+    }
+
+    private Field findField(String name) {
+        try {
+            return getFieldManager().getAllAvailableNavigableFields().stream().filter(field -> field.getName().equalsIgnoreCase(name)).findFirst().get();
+        } catch (FieldException e) {
+            log.error("", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String getCapitalizedName(ScreenableIssueOperation operation) {
+        String[] strings = operation.getNameKey().split("\\.");
+        return strings[strings.length - 1].toUpperCase();
     }
 
     private void logErrors(ErrorCollection errors) {
