@@ -1,6 +1,5 @@
 package com.subtickets;
 
-import com.atlassian.jira.avatar.Avatar;
 import com.atlassian.jira.bc.ServiceResult;
 import com.atlassian.jira.bc.config.StatusService;
 import com.atlassian.jira.bc.project.ProjectCreationData;
@@ -11,6 +10,7 @@ import com.atlassian.jira.config.IssueTypeService;
 import com.atlassian.jira.config.StatusCategoryManager;
 import com.atlassian.jira.config.StatusManager;
 import com.atlassian.jira.issue.CustomFieldManager;
+import com.atlassian.jira.issue.customfields.CustomFieldType;
 import com.atlassian.jira.issue.fields.CustomField;
 import com.atlassian.jira.issue.fields.Field;
 import com.atlassian.jira.issue.fields.FieldException;
@@ -22,7 +22,6 @@ import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeItemImpl;
 import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeManager;
 import com.atlassian.jira.issue.fields.screen.FieldScreenTab;
 import com.atlassian.jira.issue.issuetype.IssueType;
-import com.atlassian.jira.issue.operation.IssueOperations;
 import com.atlassian.jira.issue.operation.ScreenableIssueOperation;
 import com.atlassian.jira.issue.status.category.StatusCategory;
 import com.atlassian.jira.project.AssigneeTypes;
@@ -31,11 +30,7 @@ import com.atlassian.jira.security.roles.ProjectRoleImpl;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.util.ErrorCollection;
 import com.atlassian.jira.util.SimpleErrorCollection;
-import com.atlassian.jira.workflow.ConfigurableJiraWorkflow;
-import com.atlassian.jira.workflow.WorkflowManager;
-import com.atlassian.plugin.util.ClassLoaderUtils;
-import com.opensymphony.workflow.loader.WorkflowDescriptor;
-import com.opensymphony.workflow.loader.WorkflowLoader;
+import com.subtickets.Constants.FieldAvailability;
 import com.subtickets.Constants.StatusCategoryName;
 import com.subtickets.servlet.DataSourceConfig;
 import com.subtickets.servlet.JiraDBConfig;
@@ -53,6 +48,7 @@ import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -61,14 +57,22 @@ import static com.atlassian.jira.component.ComponentAccessor.getCustomFieldManag
 import static com.atlassian.jira.component.ComponentAccessor.getFieldManager;
 import static com.atlassian.jira.component.ComponentAccessor.getFieldScreenManager;
 import static com.atlassian.jira.component.ComponentAccessor.getIssueTypeScreenSchemeManager;
+import static com.atlassian.jira.component.ComponentAccessor.getProjectManager;
 import static com.atlassian.jira.component.ComponentAccessor.getUserManager;
-import static com.atlassian.jira.component.ComponentAccessor.getWorkflowManager;
+import static com.atlassian.jira.issue.customfields.CustomFieldUtils.buildJiraIssueContexts;
+import static com.subtickets.Constants.FieldAvailability.CREATE;
+import static com.subtickets.Constants.FieldAvailability.EDIT;
+import static com.subtickets.Constants.FieldAvailability.VIEW;
 import static com.subtickets.Constants.FieldNames.ACTUAL_COSTS;
+import static com.subtickets.Constants.FieldNames.DESCRIPTION;
+import static com.subtickets.Constants.FieldNames.DUE_DATE;
 import static com.subtickets.Constants.FieldNames.FUND_COLLECTION_MANNER;
 import static com.subtickets.Constants.FieldNames.FUND_TYPE;
+import static com.subtickets.Constants.FieldNames.LABELS;
 import static com.subtickets.Constants.FieldNames.PLANNED_COSTS;
 import static com.subtickets.Constants.FieldNames.ROOM;
 import static com.subtickets.Constants.FieldNames.ROOMER;
+import static com.subtickets.Constants.FieldNames.SUMMARY;
 import static com.subtickets.Constants.FieldNames.VOTE_SQUARE;
 import static com.subtickets.Constants.IssueTypesNames.IMPROVEMENT;
 import static com.subtickets.Constants.IssueTypesNames.INCIDENT;
@@ -85,6 +89,8 @@ import static com.subtickets.Constants.ProjectValues.NAME;
 import static com.subtickets.Constants.StatusCategoryName.DONE;
 import static com.subtickets.Constants.StatusCategoryName.IN_PROGRESS;
 import static com.subtickets.Constants.StatusCategoryName.TO_DO;
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
 
 @Component
 public class JiraConfiguration {
@@ -115,6 +121,7 @@ public class JiraConfiguration {
         createIssueTypes();
         createCustomFields();
         createStatuses();
+        createScreens();
     }
 
     private void initDBTable() {
@@ -168,6 +175,7 @@ public class JiraConfiguration {
     }
 
     private void createProject() {
+        log.trace("Trying to create project");
         ProjectService projectService = getComponent(ProjectService.class);
         ProjectService.CreateProjectValidationResult createProjectValidationResult = projectService.validateCreateProject(admin, new ProjectCreationData.Builder()
                 .withName(NAME)
@@ -178,29 +186,36 @@ public class JiraConfiguration {
                 .build());
         if (createProjectValidationResult.isValid()) {
             project = projectService.createProject(createProjectValidationResult);
+            log.debug("Successfully created project {}", NAME);
         } else {
             logErrors(createProjectValidationResult.getErrorCollection());
             project = projectService.getProjectByKey(admin, KEY).get();
         }
+        log.trace("Finished creation of project");
     }
 
     private void createProjectRoles() {
+        log.trace("Trying to create project roles");
         createProjectRole("Accountant");
         createProjectRole("CEO");
         createProjectRole("CTO");
         createProjectRole("Contractor");
         createProjectRole("PQI");
         createProjectRole("Roomer");
+        log.trace("Finished creation of project roles");
     }
 
     private void createProjectRole(String name) {
+        log.trace("Trying to project role {}", name);
         ProjectRoleService projectRoleService = getComponent(ProjectRoleService.class);
         SimpleErrorCollection errors = new SimpleErrorCollection();
         projectRoleService.createProjectRole(admin, new ProjectRoleImpl(name, null), errors);
         logErrors(errors);
+        log.debug("Successfully created project role {}", name);
     }
 
     private void createIssueTypes() {
+        log.trace("Trying to create issue types");
         createIssueType(IMPROVEMENT);
         createIssueType(INCIDENT);
         createIssueType(NOTIFICATION);
@@ -211,10 +226,7 @@ public class JiraConfiguration {
         createSubIssueType(PAYMENT_NOTIFY);
         createSubIssueType(SUB_TASK);
         createSubIssueType(VOTING_NOTIFY);
-        issueTypes.values().forEach(issueType -> {
-            Avatar avatar = issueType.getAvatar();
-            log.error(issueType.getName() + ": " + (avatar != null ? avatar.getFileName() : ""));
-        });
+        log.trace("Finished creation of issue types");
     }
 
     private void createIssueType(String name) {
@@ -226,6 +238,7 @@ public class JiraConfiguration {
     }
 
     private void createIssueType(String name, boolean subTask) {
+        log.trace("Trying to create issue type {}", name);
         IssueTypeService issueTypeService = getComponent(IssueTypeService.class);
         IssueTypeService.IssueTypeCreateInput issueTypeCreateInput = new IssueTypeService.IssueTypeCreateInput.Builder()
                 .setName(name)
@@ -243,6 +256,7 @@ public class JiraConfiguration {
             throw new RuntimeException("Couldn't find issue type " + name);
         }
         issueTypes.put(name, issueType);
+        log.trace("Finished creation of issue type {}", name);
     }
 
     private IssueType findIssueType(String name) {
@@ -255,13 +269,15 @@ public class JiraConfiguration {
     }
 
     private void createCustomFields() {
+        log.trace("Trying to create custom fields");
         createNumberField(ACTUAL_COSTS);
         createSelectField(FUND_COLLECTION_MANNER);
         createSelectField(FUND_TYPE);
         createNumberField(PLANNED_COSTS);
         createTextField(ROOM);
-        createTextField(ROOMER);
+        createUserField(ROOMER);
         createNumberField(VOTE_SQUARE);
+        log.trace("Finished creation of custom fields");
     }
 
     private void createTextField(String name) {
@@ -276,27 +292,49 @@ public class JiraConfiguration {
         createCustomField(name, "select", "multiselectsearcher");
     }
 
+    private void createUserField(String name) {
+        createCustomField(name, "userpicker", "userpickergroupsearcher");
+    }
+
     private void createCustomField(String name, String type, String searcher) {
+        log.trace("Trying to create custom field, name: {}, type: {}", name, type);
         CustomFieldManager customFieldManager = getCustomFieldManager();
         Collection<CustomField> customFieldObjectsByName = customFieldManager.getCustomFieldObjectsByName(name);
         CustomField result = null;
+        String jiraType = "com.atlassian.jira.plugin.system.customfieldtypes:" + type;
         if (customFieldObjectsByName.isEmpty()) {
             try {
                 result = customFieldManager.createCustomField(name, null,
-                        customFieldManager.getCustomFieldType("com.atlassian.jira.plugin.system.customfieldtypes:" + type),
+                        customFieldManager.getCustomFieldType(jiraType),
                         customFieldManager.getCustomFieldSearcher("com.atlassian.jira.plugin.system.customfieldtypes:" + searcher),
-                        null, null);
+                        buildJiraIssueContexts(true, null, getProjectManager()),
+                        Arrays.asList((IssueType) null));
+                log.debug("Successfully created custom field {}", name);
             } catch (GenericEntityException e) {
                 e.printStackTrace();
             }
         } else {
-            log.warn("Custom field with the name \"" + name + "\" already exists");
-            result = customFieldObjectsByName.iterator().next();
+            log.debug("Custom field with the name {} already exists", name);
+            CustomField customField = customFieldObjectsByName.iterator().next();
+            CustomFieldType fieldType = customField.getCustomFieldType();
+            if (!fieldType.getKey().equals(jiraType)) {
+                log.debug("Custom field with the name {} has different type: {}", name, fieldType.getName());
+                try {
+                    customFieldManager.removeCustomField(customField);
+                    log.debug("Removal of field {} was successful", name);
+                    createCustomField(name, type, searcher);
+                } catch (Exception e) {
+                    log.error("Failed to remove custom field {}" + name, e);
+                }
+            }
+            result = customField;
         }
         customFields.put(name, result);
+        log.trace("Finished creation of custom field, name: {}, type: {}", name, type);
     }
 
     private void createStatuses() {
+        log.trace("Trying to create statuses");
         initStatusCategories();
         createStatus("TO DO", TO_DO);
         createStatus("OPEN", TO_DO);
@@ -307,11 +345,12 @@ public class JiraConfiguration {
         createStatus("DONE", DONE);
         createStatus("CLOSED", DONE);
         createStatus("CONFIRM", DONE);
+        log.trace("Finished creation of statuses");
     }
 
     private void initStatusCategories() {
         StatusManager statusManager = getComponent(StatusManager.class);
-        List<StatusCategoryName> categories = Arrays.asList(StatusCategoryName.values());
+        List<StatusCategoryName> categories = asList(StatusCategoryName.values());
         categories.forEach(statusCategory -> statusCategories.put(statusCategory, findStatusCategory(statusCategory.value)));
         statusCategories.forEach((key, value) -> statusCategoriesIcons.put(key, statusManager.getStatuses().stream().filter(status -> status.getStatusCategory().equals(value))
                 .findFirst().get().getSimpleStatus().getIconUrl()));
@@ -329,6 +368,7 @@ public class JiraConfiguration {
     }
 
     private void createStatus(String name, StatusCategoryName category) {
+        log.trace("Trying to create status {} from category {}", name, category.value);
         StatusService statusService = getComponent(StatusService.class);
         String iconUrl = statusCategoriesIcons.get(category);
         StatusCategory statusCategory = statusCategories.get(category);
@@ -338,26 +378,68 @@ public class JiraConfiguration {
         } else {
             logErrors(validateCreateStatus.getErrorCollection());
         }
+        log.trace("Finished creation of status {} from category {}", name, category.value);
     }
 
     private void createScreens() {
+        log.trace("Trying to create screens");
+        createScreen(IMPROVEMENT, new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DUE_DATE, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(LABELS, EDIT);
+            put(FUND_TYPE, CREATE);
+            put(ROOMER, CREATE);
+            put(ACTUAL_COSTS, VIEW);
+            put(PLANNED_COSTS, VIEW);
+        }});
+        createScreen(INCIDENT, new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DUE_DATE, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(LABELS, EDIT);
+            put(FUND_TYPE, CREATE);
+            put(ROOMER, CREATE);
+            put(ACTUAL_COSTS, VIEW);
+        }});
+        createScreen(TASK, new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DUE_DATE, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(LABELS, EDIT);
+            put(ACTUAL_COSTS, CREATE);
+        }});
+        log.trace("Finished creation of screens");
     }
 
     private void createScreen(String issueType, ScreenableIssueOperation operation, String... fields) {
+        log.trace("Trying to create screen for issue type {} and operation {}", issueType, operation.getNameKey());
+        log.trace("Fields: {}", Arrays.toString(fields));
         FieldScreenScheme effectiveFieldScreenScheme = getIssueTypeScreenSchemeManager().getIssueTypeScreenScheme(project).getEffectiveFieldScreenScheme(issueTypes.get(issueType));
         effectiveFieldScreenScheme.getName();
         String screenName = issueType + " " + getCapitalizedName(operation);
         FieldScreen fieldScreen = createFieldScreen(screenName, fields);
-        if (!effectiveFieldScreenScheme.getFieldScreen(operation).getName().equalsIgnoreCase(screenName)) {
+        if (!effectiveFieldScreenScheme.getFieldScreen(operation).getName().equals(screenName)) {
             effectiveFieldScreenScheme.removeFieldScreenSchemeItem(operation);
             FieldScreenSchemeItemImpl fieldScreenSchemeItem = new FieldScreenSchemeItemImpl(getComponent(FieldScreenSchemeManager.class), getFieldScreenManager());
             fieldScreenSchemeItem.setIssueOperation(operation);
             fieldScreenSchemeItem.setFieldScreen(fieldScreen);
             effectiveFieldScreenScheme.addFieldScreenSchemeItem(fieldScreenSchemeItem);
         }
+        log.trace("Finished creation of screen for issue type {} and operation {}", issueType, operation.getNameKey());
+    }
+
+    private void createScreen(String issueType, ScreenableIssueOperation operation, Collection<String> fields) {
+        createScreen(issueType, operation, fields.toArray(new String[fields.size()]));
+    }
+
+    private void createScreen(String issueType, Map<String, FieldAvailability> fields) {
+        asList(FieldAvailability.values()).forEach(fieldAvailability -> createScreen(issueType, fieldAvailability.getOperation(), fields.entrySet().stream()
+                .filter(entry -> entry.getValue().ordinal() >= fieldAvailability.ordinal()).map(Map.Entry::getKey).collect(toList())));
     }
 
     private FieldScreen createFieldScreen(String name, String... fields) {
+        log.trace("Trying to create screen {}, with fields: {}", name, Arrays.toString(fields));
         FieldScreen fieldScreen = getFieldScreenManager().getFieldScreens().stream().filter(screen -> screen.getName().equals(name)).findAny().orElseGet(() -> {
             FieldScreen screen = new FieldScreenImpl(getFieldScreenManager());
             screen.setName(name);
@@ -366,8 +448,11 @@ public class JiraConfiguration {
             return screen;
         });
         FieldScreenTab tab = fieldScreen.getTab(0);
-        tab.getFieldScreenLayoutItems().forEach(FieldScreenLayoutItem::remove);
-        Arrays.asList(fields).forEach(field -> tab.addFieldScreenLayoutItem(findField(field).getId()));
+        for (int i = 0; i < fields.length; i++) {
+            tab.addFieldScreenLayoutItem(findField(fields[i]).getId(), i);
+        }
+        tab.getFieldScreenLayoutItems().stream().skip(fields.length).forEach(FieldScreenLayoutItem::remove);
+        log.trace("Finished creation of screen {}, with fields: {}", name, Arrays.toString(fields));
         return fieldScreen;
     }
 
@@ -375,7 +460,7 @@ public class JiraConfiguration {
         try {
             return getFieldManager().getAllAvailableNavigableFields().stream().filter(field -> field.getName().equalsIgnoreCase(name)).findFirst().get();
         } catch (FieldException e) {
-            log.error("", e);
+            log.error("Failed to find field {}", name);
             throw new RuntimeException(e);
         }
     }
@@ -388,7 +473,7 @@ public class JiraConfiguration {
     private void logErrors(ErrorCollection errors) {
         if (errors.hasAnyErrors()) {
             if (errors.getErrors().size() > 0) {
-                log.warn(Arrays.toString(errors.getErrors().entrySet().toArray()));
+                log.warn(Arrays.toString(errors.getErrors().values().toArray()));
             }
             if (errors.getErrorMessages().size() > 0) {
                 log.warn(Arrays.toString(errors.getErrorMessages().toArray()));

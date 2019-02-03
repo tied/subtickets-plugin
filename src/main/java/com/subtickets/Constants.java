@@ -1,7 +1,12 @@
 package com.subtickets;
 
+import com.atlassian.jira.issue.operation.ScreenableIssueOperation;
+
 import java.util.List;
 
+import static com.atlassian.jira.issue.operation.IssueOperations.CREATE_ISSUE_OPERATION;
+import static com.atlassian.jira.issue.operation.IssueOperations.EDIT_ISSUE_OPERATION;
+import static com.atlassian.jira.issue.operation.IssueOperations.VIEW_ISSUE_OPERATION;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
 
@@ -33,6 +38,11 @@ public class Constants {
         public static final String ROOM = "Room";
         public static final String ROOMER = "Roomer";
         public static final String VOTE_SQUARE = "Vote Square";
+        public static final String ASSIGNEE = "Assignee";
+        public static final String DESCRIPTION = "Description";
+        public static final String SUMMARY = "Summary";
+        public static final String LABELS = "Labels";
+        public static final String DUE_DATE = "Due Date";
     }
 
     public enum StatusCategoryName {
@@ -45,6 +55,21 @@ public class Constants {
             this.value = value;
         }
 
+    }
+
+    public enum FieldAvailability {
+
+        VIEW(VIEW_ISSUE_OPERATION), CREATE(CREATE_ISSUE_OPERATION), EDIT(EDIT_ISSUE_OPERATION);
+
+        private ScreenableIssueOperation operation;
+
+        public ScreenableIssueOperation getOperation() {
+            return operation;
+        }
+
+        FieldAvailability(ScreenableIssueOperation operation) {
+            this.operation = operation;
+        }
     }
 
     public static final List<String> ESTEBLISHED_FUND_TYPE_VALUE = of("Esteblished", "Плановый", "Плановий").collect(toList());
