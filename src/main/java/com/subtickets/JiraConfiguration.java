@@ -17,10 +17,16 @@ import com.atlassian.jira.issue.fields.FieldException;
 import com.atlassian.jira.issue.fields.screen.FieldScreen;
 import com.atlassian.jira.issue.fields.screen.FieldScreenImpl;
 import com.atlassian.jira.issue.fields.screen.FieldScreenLayoutItem;
+import com.atlassian.jira.issue.fields.screen.FieldScreenManager;
 import com.atlassian.jira.issue.fields.screen.FieldScreenScheme;
+import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeImpl;
+import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeItem;
 import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeItemImpl;
 import com.atlassian.jira.issue.fields.screen.FieldScreenSchemeManager;
 import com.atlassian.jira.issue.fields.screen.FieldScreenTab;
+import com.atlassian.jira.issue.fields.screen.issuetype.IssueTypeScreenScheme;
+import com.atlassian.jira.issue.fields.screen.issuetype.IssueTypeScreenSchemeEntityImpl;
+import com.atlassian.jira.issue.fields.screen.issuetype.IssueTypeScreenSchemeManager;
 import com.atlassian.jira.issue.issuetype.IssueType;
 import com.atlassian.jira.issue.operation.ScreenableIssueOperation;
 import com.atlassian.jira.issue.status.category.StatusCategory;
@@ -53,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.atlassian.jira.component.ComponentAccessor.getComponent;
+import static com.atlassian.jira.component.ComponentAccessor.getConstantsManager;
 import static com.atlassian.jira.component.ComponentAccessor.getCustomFieldManager;
 import static com.atlassian.jira.component.ComponentAccessor.getFieldManager;
 import static com.atlassian.jira.component.ComponentAccessor.getFieldScreenManager;
@@ -412,21 +419,44 @@ public class JiraConfiguration {
         log.trace("Finished creation of screens");
     }
 
-    private void createScreen(String issueType, ScreenableIssueOperation operation, String... fields) {
-        log.trace("Trying to create screen for issue type {} and operation {}", issueType, operation.getNameKey());
+    private void createScreen(String issueTypeName, ScreenableIssueOperation operation, String... fields) {
+        log.trace("Trying to create screen for issue type {} and operation {}", issueTypeName, operation.getNameKey());
         log.trace("Fields: {}", Arrays.toString(fields));
-        FieldScreenScheme effectiveFieldScreenScheme = getIssueTypeScreenSchemeManager().getIssueTypeScreenScheme(project).getEffectiveFieldScreenScheme(issueTypes.get(issueType));
-        effectiveFieldScreenScheme.getName();
-        String screenName = issueType + " " + getCapitalizedName(operation);
-        FieldScreen fieldScreen = createFieldScreen(screenName, fields);
-        if (!effectiveFieldScreenScheme.getFieldScreen(operation).getName().equals(screenName)) {
-            effectiveFieldScreenScheme.removeFieldScreenSchemeItem(operation);
-            FieldScreenSchemeItemImpl fieldScreenSchemeItem = new FieldScreenSchemeItemImpl(getComponent(FieldScreenSchemeManager.class), getFieldScreenManager());
-            fieldScreenSchemeItem.setIssueOperation(operation);
-            fieldScreenSchemeItem.setFieldScreen(fieldScreen);
-            effectiveFieldScreenScheme.addFieldScreenSchemeItem(fieldScreenSchemeItem);
+        IssueTypeScreenSchemeManager issueTypeScreenSchemeManager = getIssueTypeScreenSchemeManager();
+        FieldScreenSchemeManager fieldScreenSchemeManager = getComponent(FieldScreenSchemeManager.class);
+        FieldScreenManager fieldScreenManager = getFieldScreenManager();
+
+        IssueTypeScreenScheme projectScreenScheme = issueTypeScreenSchemeManager.getIssueTypeScreenScheme(project); //NSMD Issue type screen scheme
+
+        IssueType issueType = issueTypes.get(issueTypeName);
+        FieldScreenScheme issueOperations = projectScreenScheme.getEffectiveFieldScreenScheme(issueType); //Improvement operations
+        String targetFieldScreenName = issueTypeName + " operations";
+
+        if (!issueOperations.getName().equals(targetFieldScreenName)) {
+            issueOperations = new FieldScreenSchemeImpl(fieldScreenSchemeManager);
+            issueOperations.setName(targetFieldScreenName);
+            issueOperations.store();
+
+            IssueTypeScreenSchemeEntityImpl issueTypeScreenSchemeEntity = new IssueTypeScreenSchemeEntityImpl(issueTypeScreenSchemeManager, fieldScreenSchemeManager, getConstantsManager());
+            issueTypeScreenSchemeEntity.setFieldScreenScheme(issueOperations);
+            issueTypeScreenSchemeEntity.setIssueTypeId(issueType.getId());
+            projectScreenScheme.addEntity(issueTypeScreenSchemeEntity);
         }
-        log.trace("Finished creation of screen for issue type {} and operation {}", issueType, operation.getNameKey());
+
+        FieldScreenSchemeItem issueOperation = issueOperations.getFieldScreenSchemeItem(operation);
+
+        if (issueOperation == null) {
+            issueOperation = new FieldScreenSchemeItemImpl(fieldScreenSchemeManager, fieldScreenManager);
+            issueOperation.setIssueOperation(operation);
+        }
+
+        String screenName = issueTypeName + " " + getCapitalizedName(operation);
+        issueOperation.setFieldScreen(createFieldScreen(screenName, fields));
+
+        issueOperations.addFieldScreenSchemeItem(issueOperation);
+        issueOperation.store();
+
+        log.trace("Finished creation of screen for issue type {} and operation {}", issueTypeName, operation.getNameKey());
     }
 
     private void createScreen(String issueType, ScreenableIssueOperation operation, Collection<String> fields) {
