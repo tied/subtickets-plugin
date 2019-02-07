@@ -414,24 +414,33 @@ public class JiraConfiguration {
             put(ACTUAL_COSTS, VIEW);
             put(PLANNED_COSTS, VIEW);
         }});
+        createFieldScreen("IMPROVEMENT Identify Scope", PLANNED_COSTS);
+        createFieldScreen("IMPROVEMENT Work is Finished", ACTUAL_COSTS);
+
         createScreen(INCIDENT, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
-            put(CONTRACTOR, EDIT);
             put(DUE_DATE, EDIT);
             put(DESCRIPTION, EDIT);
             put(LABELS, EDIT);
             put(FUND_TYPE, CREATE);
             put(ROOMER, CREATE);
             put(ACTUAL_COSTS, VIEW);
+            put(CONTRACTOR, VIEW);
         }});
+        createFieldScreen("INCIDENT Identify Scope", CONTRACTOR);
+        createFieldScreen("INCIDENT Work is Finished", ACTUAL_COSTS);
+
         createScreen(TASK, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
-            put(CONTRACTOR, EDIT);
             put(DUE_DATE, EDIT);
             put(DESCRIPTION, EDIT);
             put(LABELS, EDIT);
-            put(ACTUAL_COSTS, CREATE);
+            put(PLANNED_COSTS, CREATE);
+            put(ACTUAL_COSTS, VIEW);
+            put(CONTRACTOR, VIEW);
         }});
+        createFieldScreen("TASK Start Progress", ACTUAL_COSTS, CONTRACTOR);
+
         createScreen(PAYMENT, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
             put(DUE_DATE, EDIT);
@@ -441,6 +450,8 @@ public class JiraConfiguration {
             put(FUND_TYPE, CREATE);
             put(ACTUAL_COSTS, VIEW);
         }});
+        createFieldScreen("PAYMENT Resolve", ACTUAL_COSTS);
+
         createScreen(PAYMENT_NOTIFY, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
             put(DESCRIPTION, EDIT);
@@ -449,6 +460,8 @@ public class JiraConfiguration {
             put(ROOMER,CREATE);
             put(ACTUAL_COSTS, VIEW);
         }});
+        createFieldScreen("PAYMENT NOTIFY Confirm", ACTUAL_COSTS);
+
         createScreen(PUBLIC, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
             put(DESCRIPTION, EDIT);
