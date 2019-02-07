@@ -71,12 +71,16 @@ import static com.subtickets.Constants.FieldAvailability.CREATE;
 import static com.subtickets.Constants.FieldAvailability.EDIT;
 import static com.subtickets.Constants.FieldAvailability.VIEW;
 import static com.subtickets.Constants.FieldNames.ACTUAL_COSTS;
+import static com.subtickets.Constants.FieldNames.ACT_END_DATE;
+import static com.subtickets.Constants.FieldNames.ACT_START_DATE;
+import static com.subtickets.Constants.FieldNames.CONTRACTOR;
 import static com.subtickets.Constants.FieldNames.DESCRIPTION;
 import static com.subtickets.Constants.FieldNames.DUE_DATE;
 import static com.subtickets.Constants.FieldNames.FUND_COLLECTION_MANNER;
 import static com.subtickets.Constants.FieldNames.FUND_TYPE;
 import static com.subtickets.Constants.FieldNames.LABELS;
 import static com.subtickets.Constants.FieldNames.PLANNED_COSTS;
+import static com.subtickets.Constants.FieldNames.PRIORITY;
 import static com.subtickets.Constants.FieldNames.ROOM;
 import static com.subtickets.Constants.FieldNames.ROOMER;
 import static com.subtickets.Constants.FieldNames.SUMMARY;
@@ -86,6 +90,7 @@ import static com.subtickets.Constants.IssueTypesNames.INCIDENT;
 import static com.subtickets.Constants.IssueTypesNames.NOTIFICATION;
 import static com.subtickets.Constants.IssueTypesNames.PAYMENT;
 import static com.subtickets.Constants.IssueTypesNames.PAYMENT_NOTIFY;
+import static com.subtickets.Constants.IssueTypesNames.PUBLIC;
 import static com.subtickets.Constants.IssueTypesNames.SUB_TASK;
 import static com.subtickets.Constants.IssueTypesNames.TASK;
 import static com.subtickets.Constants.IssueTypesNames.VOTING;
@@ -230,6 +235,7 @@ public class JiraConfiguration {
         createIssueType(TASK);
         createIssueType(VOTING);
         createIssueType(VOTING_SESSION);
+        createIssueType(PUBLIC);
         createSubIssueType(PAYMENT_NOTIFY);
         createSubIssueType(SUB_TASK);
         createSubIssueType(VOTING_NOTIFY);
@@ -283,7 +289,10 @@ public class JiraConfiguration {
         createNumberField(PLANNED_COSTS);
         createTextField(ROOM);
         createUserField(ROOMER);
+        createUserField(CONTRACTOR);
         createNumberField(VOTE_SQUARE);
+        createDateField(ACT_START_DATE);
+        createDateField(ACT_END_DATE);
         log.trace("Finished creation of custom fields");
     }
 
@@ -301,6 +310,10 @@ public class JiraConfiguration {
 
     private void createUserField(String name) {
         createCustomField(name, "userpicker", "userpickergroupsearcher");
+    }
+
+    private void createDateField(String name) {
+        createCustomField(name, "datepicker", "daterange");
     }
 
     private void createCustomField(String name, String type, String searcher) {
@@ -392,6 +405,7 @@ public class JiraConfiguration {
         log.trace("Trying to create screens");
         createScreen(IMPROVEMENT, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
+            put(CONTRACTOR, EDIT);
             put(DUE_DATE, EDIT);
             put(DESCRIPTION, EDIT);
             put(LABELS, EDIT);
@@ -402,6 +416,7 @@ public class JiraConfiguration {
         }});
         createScreen(INCIDENT, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
+            put(CONTRACTOR, EDIT);
             put(DUE_DATE, EDIT);
             put(DESCRIPTION, EDIT);
             put(LABELS, EDIT);
@@ -411,10 +426,37 @@ public class JiraConfiguration {
         }});
         createScreen(TASK, new LinkedHashMap<String, FieldAvailability>() {{
             put(SUMMARY, EDIT);
+            put(CONTRACTOR, EDIT);
             put(DUE_DATE, EDIT);
             put(DESCRIPTION, EDIT);
             put(LABELS, EDIT);
             put(ACTUAL_COSTS, CREATE);
+        }});
+        createScreen(PAYMENT, new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DUE_DATE, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(LABELS, EDIT);
+            put(PLANNED_COSTS, CREATE);
+            put(FUND_TYPE, CREATE);
+            put(ACTUAL_COSTS, VIEW);
+        }});
+        createScreen(PAYMENT_NOTIFY, new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(LABELS, EDIT);
+            put(PLANNED_COSTS, CREATE);
+            put(ROOMER,CREATE);
+            put(ACTUAL_COSTS, VIEW);
+        }});
+        createScreen(PUBLIC, new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(LABELS, EDIT);
+            put(DUE_DATE, EDIT);
+            put(ACT_START_DATE, EDIT);
+            put(ACT_END_DATE, EDIT);
+            put(PRIORITY, EDIT);
         }});
         log.trace("Finished creation of screens");
     }

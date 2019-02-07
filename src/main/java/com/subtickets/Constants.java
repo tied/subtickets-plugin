@@ -28,9 +28,13 @@ public class Constants {
         public static final String PAYMENT_NOTIFY = "Payment Notify";
         public static final String SUB_TASK = "Sub-task";
         public static final String VOTING_NOTIFY = "Voting Notify";
+        public static final String PUBLIC = "Public";
     }
 
     public static class FieldNames {
+        public static final String CONTRACTOR = "Contractor";
+        public static final String ACT_START_DATE = "Actual Start Date";
+        public static final String ACT_END_DATE = "Actual End Date";
         public static final String PLANNED_COSTS = "Planned Costs";
         public static final String ACTUAL_COSTS = "Actual Costs";
         public static final String FUND_TYPE = "Fund type";
@@ -43,6 +47,7 @@ public class Constants {
         public static final String SUMMARY = "Summary";
         public static final String LABELS = "Labels";
         public static final String DUE_DATE = "Due Date";
+        public static final String PRIORITY = "Priority";
     }
 
     public enum StatusCategoryName {
