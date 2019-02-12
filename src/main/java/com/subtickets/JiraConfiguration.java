@@ -36,6 +36,14 @@ import com.atlassian.jira.security.roles.ProjectRoleImpl;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.util.ErrorCollection;
 import com.atlassian.jira.util.SimpleErrorCollection;
+import com.atlassian.jira.workflow.AssignableWorkflowScheme;
+import com.atlassian.jira.workflow.ConfigurableJiraWorkflow;
+import com.atlassian.jira.workflow.JiraWorkflow;
+import com.atlassian.jira.workflow.WorkflowManager;
+import com.atlassian.jira.workflow.WorkflowSchemeManager;
+import com.atlassian.plugin.util.ClassLoaderUtils;
+import com.opensymphony.workflow.loader.WorkflowDescriptor;
+import com.opensymphony.workflow.loader.WorkflowLoader;
 import com.subtickets.Constants.FieldAvailability;
 import com.subtickets.Constants.StatusCategoryName;
 import com.subtickets.servlet.DataSourceConfig;
@@ -66,6 +74,8 @@ import static com.atlassian.jira.component.ComponentAccessor.getFieldScreenManag
 import static com.atlassian.jira.component.ComponentAccessor.getIssueTypeScreenSchemeManager;
 import static com.atlassian.jira.component.ComponentAccessor.getProjectManager;
 import static com.atlassian.jira.component.ComponentAccessor.getUserManager;
+import static com.atlassian.jira.component.ComponentAccessor.getWorkflowManager;
+import static com.atlassian.jira.component.ComponentAccessor.getWorkflowSchemeManager;
 import static com.atlassian.jira.issue.customfields.CustomFieldUtils.buildJiraIssueContexts;
 import static com.subtickets.Constants.FieldAvailability.CREATE;
 import static com.subtickets.Constants.FieldAvailability.EDIT;
@@ -134,6 +144,7 @@ public class JiraConfiguration {
         createCustomFields();
         createStatuses();
         createScreens();
+        createWorkflows();
     }
 
     private void initDBTable() {
@@ -539,6 +550,51 @@ public class JiraConfiguration {
         tab.getFieldScreenLayoutItems().stream().skip(fields.length).forEach(FieldScreenLayoutItem::remove);
         log.trace("Finished creation of screen {}, with fields: {}", name, Arrays.toString(fields));
         return fieldScreen;
+    }
+
+    private void createWorkflows() {
+        createWorkflow(IMPROVEMENT);
+        createWorkflow(INCIDENT);
+        createWorkflow(TASK);
+    }
+
+    private void createWorkflow(String issueTypeName) {
+        try {
+            WorkflowSchemeManager workflowSchemeManager = getWorkflowSchemeManager();
+            JiraWorkflow jiraWorkflow = importWorkflow(issueTypeName);
+            String workflowSchemeName = "NSMD Workflow: Default schema";
+            workflowSchemeManager.getSchemeObject(workflowSchemeName);
+            AssignableWorkflowScheme workflowScheme = workflowSchemeManager.getWorkflowSchemeObj(project); // necessary intermediate step
+            if (!workflowScheme.getName().equals(workflowSchemeName)) {
+                workflowSchemeManager.removeSchemesFromProject(project);
+                workflowSchemeManager.addSchemeToProject(project, workflowSchemeManager.createSchemeObject(workflowSchemeName, ""));
+                workflowScheme = workflowSchemeManager.getWorkflowSchemeObj(project);
+            }
+            AssignableWorkflowScheme.Builder myWorkflowSchemeBuilder = workflowScheme.builder();
+            String workflowName = jiraWorkflow.getName();
+            myWorkflowSchemeBuilder.setMapping(issueTypes.get(issueTypeName).getId(), workflowName);
+            workflowSchemeManager.updateWorkflowScheme(myWorkflowSchemeBuilder.build());
+        } catch (Exception e) {
+            log.error("Exception while creating workflow " + issueTypeName, e);
+        }
+    }
+
+    private JiraWorkflow importWorkflow(String issueType) {
+        try {
+            WorkflowManager workflowManager = getWorkflowManager();
+            String name = issueType + "WF";
+            JiraWorkflow existingWorkflow = workflowManager.getWorkflow(name);
+            if (existingWorkflow != null) {
+                workflowManager.deleteWorkflow(existingWorkflow);
+            }
+            final WorkflowDescriptor workflowDescriptor = WorkflowLoader.load(ClassLoaderUtils.getResourceAsStream("workflows/" + issueType + ".xml", getClass()), true);
+            ConfigurableJiraWorkflow newWorkflow = new ConfigurableJiraWorkflow(name, workflowDescriptor, workflowManager);
+            workflowManager.createWorkflow(admin, newWorkflow);
+            return newWorkflow;
+        } catch (Exception e) {
+            log.error("Exception while importing workflow " + issueType, e);
+            return null;
+        }
     }
 
     private Field findField(String name) {
