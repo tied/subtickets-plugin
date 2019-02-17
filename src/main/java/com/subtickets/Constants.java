@@ -29,6 +29,8 @@ public class Constants {
         public static final String SUB_TASK = "Sub-task";
         public static final String VOTING_NOTIFY = "Voting Notify";
         public static final String PUBLIC = "Public";
+        public static final String BOARDING = "Boarding";
+        public static final String BOARDING_VALIDATION = "Boarding Validation";
     }
 
     public static class FieldNames {
@@ -48,6 +50,14 @@ public class Constants {
         public static final String LABELS = "Labels";
         public static final String DUE_DATE = "Due Date";
         public static final String PRIORITY = "Priority";
+        public static final String CONTRACTOR_NAME = "Contractor Name";
+        public static final String CONTRACTOR_ID = "Contractor ID";
+        public static final String ACCOUNT_NUMBER = "Account Number";
+        public static final String BANK_DETAILS = "Bank Details";
+        public static final String BUSINESS_ADDRESS = "Business Address";
+        public static final String BUSINESS_MAIL = "Business Mail";
+        public static final String PHONE = "Phone";
+        public static final String EDRPOU= "EDRPOU";
     }
 
     public enum StatusCategoryName {

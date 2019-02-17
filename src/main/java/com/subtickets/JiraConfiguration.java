@@ -81,21 +81,32 @@ import static com.atlassian.jira.issue.customfields.CustomFieldUtils.buildJiraIs
 import static com.subtickets.Constants.FieldAvailability.CREATE;
 import static com.subtickets.Constants.FieldAvailability.EDIT;
 import static com.subtickets.Constants.FieldAvailability.VIEW;
+import static com.subtickets.Constants.FieldNames.ACCOUNT_NUMBER;
 import static com.subtickets.Constants.FieldNames.ACTUAL_COSTS;
 import static com.subtickets.Constants.FieldNames.ACT_END_DATE;
 import static com.subtickets.Constants.FieldNames.ACT_START_DATE;
+import static com.subtickets.Constants.FieldNames.ASSIGNEE;
+import static com.subtickets.Constants.FieldNames.BANK_DETAILS;
+import static com.subtickets.Constants.FieldNames.BUSINESS_ADDRESS;
+import static com.subtickets.Constants.FieldNames.BUSINESS_MAIL;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR;
+import static com.subtickets.Constants.FieldNames.CONTRACTOR_ID;
+import static com.subtickets.Constants.FieldNames.CONTRACTOR_NAME;
 import static com.subtickets.Constants.FieldNames.DESCRIPTION;
 import static com.subtickets.Constants.FieldNames.DUE_DATE;
+import static com.subtickets.Constants.FieldNames.EDRPOU;
 import static com.subtickets.Constants.FieldNames.FUND_COLLECTION_MANNER;
 import static com.subtickets.Constants.FieldNames.FUND_TYPE;
 import static com.subtickets.Constants.FieldNames.LABELS;
+import static com.subtickets.Constants.FieldNames.PHONE;
 import static com.subtickets.Constants.FieldNames.PLANNED_COSTS;
 import static com.subtickets.Constants.FieldNames.PRIORITY;
 import static com.subtickets.Constants.FieldNames.ROOM;
 import static com.subtickets.Constants.FieldNames.ROOMER;
 import static com.subtickets.Constants.FieldNames.SUMMARY;
 import static com.subtickets.Constants.FieldNames.VOTE_SQUARE;
+import static com.subtickets.Constants.IssueTypesNames.BOARDING_VALIDATION;
+import static com.subtickets.Constants.IssueTypesNames.BOARDING;
 import static com.subtickets.Constants.IssueTypesNames.IMPROVEMENT;
 import static com.subtickets.Constants.IssueTypesNames.INCIDENT;
 import static com.subtickets.Constants.IssueTypesNames.NOTIFICATION;
@@ -249,9 +260,11 @@ public class JiraConfiguration implements InitializingBean {
         createIssueType(VOTING);
         createIssueType(VOTING_SESSION);
         createIssueType(PUBLIC);
+        createIssueType(BOARDING);
         createSubIssueType(PAYMENT_NOTIFY);
         createSubIssueType(SUB_TASK);
         createSubIssueType(VOTING_NOTIFY);
+        createSubIssueType(BOARDING_VALIDATION);
         log.trace("Finished creation of issue types");
     }
 
@@ -306,6 +319,14 @@ public class JiraConfiguration implements InitializingBean {
         createNumberField(VOTE_SQUARE);
         createDateField(ACT_START_DATE);
         createDateField(ACT_END_DATE);
+        createTextField(CONTRACTOR_NAME);
+        createTextField(CONTRACTOR_ID);
+        createTextField(ACCOUNT_NUMBER);
+        createTextField(BANK_DETAILS);
+        createTextField(BUSINESS_ADDRESS);
+        createTextField(BUSINESS_MAIL);
+        createTextField(PHONE);
+        createTextField(EDRPOU);
         log.trace("Finished creation of custom fields");
     }
 
@@ -483,6 +504,26 @@ public class JiraConfiguration implements InitializingBean {
             put(ACT_START_DATE, EDIT);
             put(ACT_END_DATE, EDIT);
             put(PRIORITY, EDIT);
+        }});
+        createScreen(BOARDING, new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DUE_DATE, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(LABELS, EDIT);
+            put(CONTRACTOR_NAME, EDIT);
+            put(CONTRACTOR_ID, EDIT);
+            put(ACCOUNT_NUMBER, EDIT);
+            put(BANK_DETAILS, EDIT);
+            put(BUSINESS_ADDRESS, EDIT);
+            put(PHONE, EDIT);
+            put(BUSINESS_MAIL, EDIT);
+            put(EDRPOU, EDIT);
+        }});
+        createScreen(BOARDING_VALIDATION,  new LinkedHashMap<String, FieldAvailability>() {{
+            put(SUMMARY, EDIT);
+            put(DUE_DATE, EDIT);
+            put(DESCRIPTION, EDIT);
+            put(ASSIGNEE, EDIT);
         }});
         log.trace("Finished creation of screens");
     }
