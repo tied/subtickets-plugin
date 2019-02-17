@@ -51,6 +51,7 @@ import com.subtickets.servlet.JiraDBConfig;
 import org.ofbiz.core.entity.GenericEntityException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
 import javax.xml.bind.JAXBContext;
@@ -115,7 +116,7 @@ import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 
 @Component
-public class JiraConfiguration {
+public class JiraConfiguration implements InitializingBean {
 
     private static final Logger log = LoggerFactory.getLogger(JiraConfiguration.class);
 
@@ -131,7 +132,8 @@ public class JiraConfiguration {
 
     public static Map<StatusCategoryName, String> statusCategoriesIcons = new HashMap<>();
 
-    public JiraConfiguration() {
+    @Override
+    public void afterPropertiesSet() {
         admin = getUserManager().getUserByName("admin");
         bootstrap();
     }
@@ -468,7 +470,7 @@ public class JiraConfiguration {
             put(DESCRIPTION, EDIT);
             put(LABELS, EDIT);
             put(PLANNED_COSTS, CREATE);
-            put(ROOMER,CREATE);
+            put(ROOMER, CREATE);
             put(ACTUAL_COSTS, VIEW);
         }});
         createFieldScreen("PAYMENT NOTIFY Confirm", ACTUAL_COSTS);
@@ -561,7 +563,6 @@ public class JiraConfiguration {
     private void createWorkflow(String issueTypeName) {
         try {
             WorkflowSchemeManager workflowSchemeManager = getWorkflowSchemeManager();
-            JiraWorkflow jiraWorkflow = importWorkflow(issueTypeName);
             String workflowSchemeName = "NSMD Workflow: Default schema";
             workflowSchemeManager.getSchemeObject(workflowSchemeName);
             AssignableWorkflowScheme workflowScheme = workflowSchemeManager.getWorkflowSchemeObj(project); // necessary intermediate step
@@ -570,21 +571,24 @@ public class JiraConfiguration {
                 workflowSchemeManager.addSchemeToProject(project, workflowSchemeManager.createSchemeObject(workflowSchemeName, ""));
                 workflowScheme = workflowSchemeManager.getWorkflowSchemeObj(project);
             }
-            AssignableWorkflowScheme.Builder myWorkflowSchemeBuilder = workflowScheme.builder();
-            String workflowName = jiraWorkflow.getName();
-            myWorkflowSchemeBuilder.setMapping(issueTypes.get(issueTypeName).getId(), workflowName);
-            workflowSchemeManager.updateWorkflowScheme(myWorkflowSchemeBuilder.build());
+            AssignableWorkflowScheme.Builder workflowSchemeBuilder = workflowScheme.builder();
+            String workflowName = importWorkflow(issueTypeName, workflowScheme).getName();
+            workflowSchemeBuilder.setMapping(issueTypes.get(issueTypeName).getId(), workflowName);
+            workflowSchemeManager.updateWorkflowScheme(workflowSchemeBuilder.build());
         } catch (Exception e) {
             log.error("Exception while creating workflow " + issueTypeName, e);
         }
     }
 
-    private JiraWorkflow importWorkflow(String issueType) {
+    private JiraWorkflow importWorkflow(String issueType, AssignableWorkflowScheme workflowScheme) {
         try {
             WorkflowManager workflowManager = getWorkflowManager();
             String name = issueType + "WF";
             JiraWorkflow existingWorkflow = workflowManager.getWorkflow(name);
             if (existingWorkflow != null) {
+                AssignableWorkflowScheme.Builder builder = workflowScheme.builder();
+                builder.removeMapping(issueTypes.get(issueType).getId());
+                getWorkflowSchemeManager().updateWorkflowScheme(builder.build());
                 workflowManager.deleteWorkflow(existingWorkflow);
             }
             final WorkflowDescriptor workflowDescriptor = WorkflowLoader.load(ClassLoaderUtils.getResourceAsStream("workflows/" + issueType + ".xml", getClass()), true);
