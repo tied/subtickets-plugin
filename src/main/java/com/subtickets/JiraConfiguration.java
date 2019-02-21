@@ -86,10 +86,11 @@ import static com.subtickets.Constants.FieldNames.ACTUAL_COSTS;
 import static com.subtickets.Constants.FieldNames.ACT_END_DATE;
 import static com.subtickets.Constants.FieldNames.ACT_START_DATE;
 import static com.subtickets.Constants.FieldNames.ASSIGNEE;
-import static com.subtickets.Constants.FieldNames.BANK_DETAILS;
+import static com.subtickets.Constants.FieldNames.CONTRACTOR_BANK;
 import static com.subtickets.Constants.FieldNames.BUSINESS_ADDRESS;
 import static com.subtickets.Constants.FieldNames.BUSINESS_MAIL;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR;
+import static com.subtickets.Constants.FieldNames.CONTRACTOR_BANK_ID;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR_ID;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR_NAME;
 import static com.subtickets.Constants.FieldNames.DESCRIPTION;
@@ -320,13 +321,14 @@ public class JiraConfiguration implements InitializingBean {
         createDateField(ACT_START_DATE);
         createDateField(ACT_END_DATE);
         createTextField(CONTRACTOR_NAME);
-        createTextField(CONTRACTOR_ID);
-        createTextField(ACCOUNT_NUMBER);
-        createTextField(BANK_DETAILS);
+        createNumberField(CONTRACTOR_ID);
+        createTextField(CONTRACTOR_BANK);
+        createNumberField(CONTRACTOR_BANK_ID);
+        createNumberField(ACCOUNT_NUMBER);
         createTextField(BUSINESS_ADDRESS);
         createTextField(BUSINESS_MAIL);
         createTextField(PHONE);
-        createTextField(EDRPOU);
+        createNumberField(EDRPOU);
         log.trace("Finished creation of custom fields");
     }
 
@@ -437,94 +439,27 @@ public class JiraConfiguration implements InitializingBean {
 
     private void createScreens() {
         log.trace("Trying to create screens");
-        createScreen(IMPROVEMENT, new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(CONTRACTOR, EDIT);
-            put(DUE_DATE, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(LABELS, EDIT);
-            put(FUND_TYPE, CREATE);
-            put(ROOMER, CREATE);
-            put(ACTUAL_COSTS, VIEW);
-            put(PLANNED_COSTS, VIEW);
-        }});
+        createScreen(new IssueScreensFields(IMPROVEMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR).create(FUND_TYPE, ROOMER).view(ACTUAL_COSTS, PLANNED_COSTS));
         createFieldScreen("IMPROVEMENT Identify Scope", PLANNED_COSTS);
         createFieldScreen("IMPROVEMENT Work is Finished", ACTUAL_COSTS);
 
-        createScreen(INCIDENT, new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(DUE_DATE, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(LABELS, EDIT);
-            put(FUND_TYPE, CREATE);
-            put(ROOMER, CREATE);
-            put(ACTUAL_COSTS, VIEW);
-            put(CONTRACTOR, VIEW);
-        }});
+        createScreen(new IssueScreensFields(INCIDENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(FUND_TYPE, ROOMER).view(ACTUAL_COSTS, CONTRACTOR));
         createFieldScreen("INCIDENT Identify Scope", CONTRACTOR);
         createFieldScreen("INCIDENT Work is Finished", ACTUAL_COSTS);
 
-        createScreen(TASK, new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(DUE_DATE, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(LABELS, EDIT);
-            put(PLANNED_COSTS, CREATE);
-            put(ACTUAL_COSTS, VIEW);
-            put(CONTRACTOR, VIEW);
-        }});
+        createScreen(new IssueScreensFields(TASK).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(PLANNED_COSTS).view(ACTUAL_COSTS, CONTRACTOR));
         createFieldScreen("TASK Start Progress", ACTUAL_COSTS, CONTRACTOR);
 
-        createScreen(PAYMENT, new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(DUE_DATE, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(LABELS, EDIT);
-            put(PLANNED_COSTS, CREATE);
-            put(FUND_TYPE, CREATE);
-            put(ACTUAL_COSTS, VIEW);
-        }});
+        createScreen(new IssueScreensFields(PAYMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(PLANNED_COSTS, FUND_TYPE).view(ACTUAL_COSTS));
         createFieldScreen("PAYMENT Resolve", ACTUAL_COSTS);
 
-        createScreen(PAYMENT_NOTIFY, new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(LABELS, EDIT);
-            put(PLANNED_COSTS, CREATE);
-            put(ROOMER, CREATE);
-            put(ACTUAL_COSTS, VIEW);
-        }});
+        createScreen(new IssueScreensFields(PAYMENT_NOTIFY).edit(SUMMARY, DESCRIPTION, LABELS).create(PLANNED_COSTS, ROOMER).view(ACTUAL_COSTS));
         createFieldScreen("PAYMENT NOTIFY Confirm", ACTUAL_COSTS);
 
-        createScreen(PUBLIC, new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(LABELS, EDIT);
-            put(DUE_DATE, EDIT);
-            put(ACT_START_DATE, EDIT);
-            put(ACT_END_DATE, EDIT);
-            put(PRIORITY, EDIT);
-        }});
-        createScreen(BOARDING, new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(DUE_DATE, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(LABELS, EDIT);
-            put(CONTRACTOR_NAME, EDIT);
-            put(CONTRACTOR_ID, EDIT);
-            put(ACCOUNT_NUMBER, EDIT);
-            put(BANK_DETAILS, EDIT);
-            put(BUSINESS_ADDRESS, EDIT);
-            put(PHONE, EDIT);
-            put(BUSINESS_MAIL, EDIT);
-            put(EDRPOU, EDIT);
-        }});
-        createScreen(BOARDING_VALIDATION,  new LinkedHashMap<String, FieldAvailability>() {{
-            put(SUMMARY, EDIT);
-            put(DUE_DATE, EDIT);
-            put(DESCRIPTION, EDIT);
-            put(ASSIGNEE, EDIT);
-        }});
+        createScreen(new IssueScreensFields(PUBLIC).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, ACT_START_DATE, ACT_END_DATE, PRIORITY));
+
+        createScreen(new IssueScreensFields(BOARDING).create(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR_NAME, CONTRACTOR_ID, ACCOUNT_NUMBER, CONTRACTOR_BANK, BUSINESS_ADDRESS, PHONE, BUSINESS_MAIL, EDRPOU));
+        createScreen(new IssueScreensFields(BOARDING_VALIDATION).edit(SUMMARY, DUE_DATE, DESCRIPTION, ASSIGNEE));
         log.trace("Finished creation of screens");
     }
 
@@ -568,6 +503,10 @@ public class JiraConfiguration implements InitializingBean {
         log.trace("Finished creation of screen for issue type {} and operation {}", issueTypeName, operation.getNameKey());
     }
 
+    private void createScreen(IssueScreensFields issueScreensFields) {
+        createScreen(issueScreensFields.issueType, issueScreensFields.fieldsMap);
+    }
+
     private void createScreen(String issueType, ScreenableIssueOperation operation, Collection<String> fields) {
         createScreen(issueType, operation, fields.toArray(new String[fields.size()]));
     }
@@ -599,6 +538,7 @@ public class JiraConfiguration implements InitializingBean {
         createWorkflow(IMPROVEMENT);
         createWorkflow(INCIDENT);
         createWorkflow(TASK);
+        createWorkflow(BOARDING_VALIDATION);
     }
 
     private void createWorkflow(String issueTypeName) {
@@ -623,6 +563,7 @@ public class JiraConfiguration implements InitializingBean {
 
     private JiraWorkflow importWorkflow(String issueType, AssignableWorkflowScheme workflowScheme) {
         try {
+            issueType = issueType.replace(" ", "");
             WorkflowManager workflowManager = getWorkflowManager();
             String name = issueType + "WF";
             JiraWorkflow existingWorkflow = workflowManager.getWorkflow(name);
@@ -667,4 +608,29 @@ public class JiraConfiguration implements InitializingBean {
         }
     }
 
+    private static class IssueScreensFields {
+
+        private String issueType;
+        private Map<String, FieldAvailability> fieldsMap = new LinkedHashMap<>();
+
+        public IssueScreensFields(String issueType) {
+            this.issueType = issueType;
+        }
+
+        public IssueScreensFields edit(String... fields) {
+            Arrays.asList(fields).forEach(field -> this.fieldsMap.put(field, EDIT));
+            return this;
+        }
+
+        public IssueScreensFields create(String... fields) {
+            Arrays.asList(fields).forEach(field -> fieldsMap.put(field, CREATE));
+            return this;
+        }
+
+        public IssueScreensFields view(String... fields) {
+            Arrays.asList(fields).forEach(field -> fieldsMap.put(field, VIEW));
+            return this;
+        }
+
+    }
 }

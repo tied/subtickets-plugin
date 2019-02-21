@@ -52,12 +52,13 @@ public class Constants {
         public static final String PRIORITY = "Priority";
         public static final String CONTRACTOR_NAME = "Contractor Name";
         public static final String CONTRACTOR_ID = "Contractor ID";
-        public static final String ACCOUNT_NUMBER = "Account Number";
-        public static final String BANK_DETAILS = "Bank Details";
         public static final String BUSINESS_ADDRESS = "Business Address";
         public static final String BUSINESS_MAIL = "Business Mail";
+        public static final String CONTRACTOR_BANK = "Contractor Bank";
+        public static final String CONTRACTOR_BANK_ID = "Contractor Bank ID";
+        public static final String ACCOUNT_NUMBER = "Account Number";
         public static final String PHONE = "Phone";
-        public static final String EDRPOU= "EDRPOU";
+        public static final String EDRPOU = "EDRPOU";
     }
 
     public enum StatusCategoryName {
@@ -85,6 +86,16 @@ public class Constants {
         FieldAvailability(ScreenableIssueOperation operation) {
             this.operation = operation;
         }
+    }
+
+    public static class URL {
+        private static final String SERVICE_ENDPOINT = "http://localhost:3000/";
+
+        public static final String ROOMERS = SERVICE_ENDPOINT + "roomers";
+        public static final String CREATE_SUBS = SERVICE_ENDPOINT + "createsubs";
+        public static final String GET_VOTING_RESULTS = SERVICE_ENDPOINT + "getvotingresults";
+        public static final String START_VOTING_SESSION = SERVICE_ENDPOINT + "startvotingsession";
+        public static final String BOARDING_CREATED = SERVICE_ENDPOINT + "boardingcreated";
     }
 
     public static final List<String> ESTEBLISHED_FUND_TYPE_VALUE = of("Esteblished", "Плановый", "Плановий").collect(toList());
