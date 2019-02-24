@@ -11,9 +11,13 @@ import com.atlassian.jira.config.StatusCategoryManager;
 import com.atlassian.jira.config.StatusManager;
 import com.atlassian.jira.issue.CustomFieldManager;
 import com.atlassian.jira.issue.customfields.CustomFieldType;
+import com.atlassian.jira.issue.customfields.manager.OptionsManager;
+import com.atlassian.jira.issue.customfields.option.Options;
 import com.atlassian.jira.issue.fields.CustomField;
 import com.atlassian.jira.issue.fields.Field;
 import com.atlassian.jira.issue.fields.FieldException;
+import com.atlassian.jira.issue.fields.config.FieldConfig;
+import com.atlassian.jira.issue.fields.config.FieldConfigScheme;
 import com.atlassian.jira.issue.fields.screen.FieldScreen;
 import com.atlassian.jira.issue.fields.screen.FieldScreenImpl;
 import com.atlassian.jira.issue.fields.screen.FieldScreenLayoutItem;
@@ -73,6 +77,7 @@ import static com.atlassian.jira.component.ComponentAccessor.getCustomFieldManag
 import static com.atlassian.jira.component.ComponentAccessor.getFieldManager;
 import static com.atlassian.jira.component.ComponentAccessor.getFieldScreenManager;
 import static com.atlassian.jira.component.ComponentAccessor.getIssueTypeScreenSchemeManager;
+import static com.atlassian.jira.component.ComponentAccessor.getOptionsManager;
 import static com.atlassian.jira.component.ComponentAccessor.getProjectManager;
 import static com.atlassian.jira.component.ComponentAccessor.getUserManager;
 import static com.atlassian.jira.component.ComponentAccessor.getWorkflowManager;
@@ -86,10 +91,10 @@ import static com.subtickets.Constants.FieldNames.ACTUAL_COSTS;
 import static com.subtickets.Constants.FieldNames.ACT_END_DATE;
 import static com.subtickets.Constants.FieldNames.ACT_START_DATE;
 import static com.subtickets.Constants.FieldNames.ASSIGNEE;
-import static com.subtickets.Constants.FieldNames.CONTRACTOR_BANK;
 import static com.subtickets.Constants.FieldNames.BUSINESS_ADDRESS;
 import static com.subtickets.Constants.FieldNames.BUSINESS_MAIL;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR;
+import static com.subtickets.Constants.FieldNames.CONTRACTOR_BANK;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR_BANK_ID;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR_ID;
 import static com.subtickets.Constants.FieldNames.CONTRACTOR_NAME;
@@ -106,8 +111,8 @@ import static com.subtickets.Constants.FieldNames.ROOM;
 import static com.subtickets.Constants.FieldNames.ROOMER;
 import static com.subtickets.Constants.FieldNames.SUMMARY;
 import static com.subtickets.Constants.FieldNames.VOTE_SQUARE;
-import static com.subtickets.Constants.IssueTypesNames.BOARDING_VALIDATION;
 import static com.subtickets.Constants.IssueTypesNames.BOARDING;
+import static com.subtickets.Constants.IssueTypesNames.BOARDING_VALIDATION;
 import static com.subtickets.Constants.IssueTypesNames.IMPROVEMENT;
 import static com.subtickets.Constants.IssueTypesNames.INCIDENT;
 import static com.subtickets.Constants.IssueTypesNames.NOTIFICATION;
@@ -311,8 +316,8 @@ public class JiraConfiguration implements InitializingBean {
     private void createCustomFields() {
         log.trace("Trying to create custom fields");
         createNumberField(ACTUAL_COSTS);
-        createSelectField(FUND_COLLECTION_MANNER);
-        createSelectField(FUND_TYPE);
+        createSelectField(FUND_COLLECTION_MANNER, "Auto", "Door", "Sq");
+        createSelectField(FUND_TYPE, "Esteblished", "Custom", "Development");
         createNumberField(PLANNED_COSTS);
         createTextField(ROOM);
         createUserField(ROOMER);
@@ -340,8 +345,22 @@ public class JiraConfiguration implements InitializingBean {
         createCustomField(name, "float", "exactnumber");
     }
 
-    private void createSelectField(String name) {
-        createCustomField(name, "select", "multiselectsearcher");
+    private void createSelectField(String name, String... options) {
+        CustomField field = createCustomField(name, "select", "multiselectsearcher");
+        OptionsManager optionsManager = getOptionsManager();
+        List<FieldConfigScheme> configurationSchemes = field.getConfigurationSchemes();
+        FieldConfig config = configurationSchemes.listIterator().next().getOneAndOnlyConfig();
+        Options existingOptions = optionsManager.getOptions(config);
+        for (int i = 0, sequence = 0; i < options.length; i++, sequence++) {
+            String option = options[i];
+            if (existingOptions.stream().noneMatch(o -> o.getValue().equals(option))) {
+                optionsManager.createOption(config, null, (long) sequence, option);
+            } else {
+                sequence++;
+            }
+        }
+        List<String> newOptions = asList(options);
+        existingOptions.stream().filter(option -> newOptions.stream().noneMatch(n -> n.equals(option.getValue()))).forEach(optionsManager::deleteOptionAndChildren);
     }
 
     private void createUserField(String name) {
@@ -352,7 +371,7 @@ public class JiraConfiguration implements InitializingBean {
         createCustomField(name, "datepicker", "daterange");
     }
 
-    private void createCustomField(String name, String type, String searcher) {
+    private CustomField createCustomField(String name, String type, String searcher) {
         log.trace("Trying to create custom field, name: {}, type: {}", name, type);
         CustomFieldManager customFieldManager = getCustomFieldManager();
         Collection<CustomField> customFieldObjectsByName = customFieldManager.getCustomFieldObjectsByName(name);
@@ -387,6 +406,7 @@ public class JiraConfiguration implements InitializingBean {
         }
         customFields.put(name, result);
         log.trace("Finished creation of custom field, name: {}, type: {}", name, type);
+        return result;
     }
 
     private void createStatuses() {
@@ -450,10 +470,10 @@ public class JiraConfiguration implements InitializingBean {
         createScreen(new IssueScreensFields(TASK).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(PLANNED_COSTS).view(ACTUAL_COSTS, CONTRACTOR));
         createFieldScreen("TASK Start Progress", ACTUAL_COSTS, CONTRACTOR);
 
-        createScreen(new IssueScreensFields(PAYMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(PLANNED_COSTS, FUND_TYPE).view(ACTUAL_COSTS));
+        createScreen(new IssueScreensFields(PAYMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(PLANNED_COSTS, FUND_TYPE, FUND_COLLECTION_MANNER).view(ACTUAL_COSTS));
         createFieldScreen("PAYMENT Resolve", ACTUAL_COSTS);
 
-        createScreen(new IssueScreensFields(PAYMENT_NOTIFY).edit(SUMMARY, DESCRIPTION, LABELS).create(PLANNED_COSTS, ROOMER).view(ACTUAL_COSTS));
+        createScreen(new IssueScreensFields(PAYMENT_NOTIFY).edit(SUMMARY, DESCRIPTION, LABELS).create(PLANNED_COSTS, ROOMER, ASSIGNEE).view(ACTUAL_COSTS));
         createFieldScreen("PAYMENT NOTIFY Confirm", ACTUAL_COSTS);
 
         createScreen(new IssueScreensFields(PUBLIC).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, ACT_START_DATE, ACT_END_DATE, PRIORITY));
