@@ -89,13 +89,14 @@ public class Constants {
     }
 
     public static class URL {
-        private static final String SERVICE_ENDPOINT = "http://localhost:3000/";
+        public static final String SERVICE_ENDPOINT = "http://localhost:3000/";
 
-        public static final String ROOMERS = SERVICE_ENDPOINT + "roomers";
-        public static final String CREATE_SUBS = SERVICE_ENDPOINT + "createsubs";
-        public static final String GET_VOTING_RESULTS = SERVICE_ENDPOINT + "getvotingresults";
-        public static final String START_VOTING_SESSION = SERVICE_ENDPOINT + "startvotingsession";
-        public static final String BOARDING_CREATED = SERVICE_ENDPOINT + "boardingcreated";
+        public static final String ROOMERS = "roomers";
+        public static final String CREATE_SUBS = "createsubs";
+        public static final String GET_VOTING_RESULTS = "getvotingresults";
+        public static final String START_VOTING_SESSION = "startvotingsession";
+        public static final String BOARDING_CREATED = "boardingcreated";
+        public static final String TASK_CLOSED = "taskclosed";
     }
 
     public static final List<String> ESTEBLISHED_FUND_TYPE_VALUE = of("Esteblished", "Плановый", "Плановий").collect(toList());
