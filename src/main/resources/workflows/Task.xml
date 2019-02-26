@@ -36,7 +36,7 @@
       <actions>
         <action id="11" name="Start Progress" view="fieldscreen">
           <meta name="jira.description"></meta>
-          <meta name="jira.fieldscreen.id">11504</meta>
+          <meta name="jira.fieldscreen.id">$data.taskStartProgress</meta>
           <restrict-to>
             <conditions>
               <condition type="class">

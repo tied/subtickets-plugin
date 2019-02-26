@@ -45,7 +45,7 @@ import com.atlassian.jira.workflow.ConfigurableJiraWorkflow;
 import com.atlassian.jira.workflow.JiraWorkflow;
 import com.atlassian.jira.workflow.WorkflowManager;
 import com.atlassian.jira.workflow.WorkflowSchemeManager;
-import com.atlassian.plugin.util.ClassLoaderUtils;
+import com.google.common.base.CaseFormat;
 import com.opensymphony.workflow.loader.WorkflowDescriptor;
 import com.opensymphony.workflow.loader.WorkflowLoader;
 import com.subtickets.Constants.FieldAvailability;
@@ -149,8 +149,13 @@ public class JiraConfiguration implements InitializingBean {
 
     public static Map<StatusCategoryName, String> statusCategoriesIcons = new HashMap<>();
 
+    private static Map<String, Long> screensIds = new HashMap<>();
+
+    private TemplateEngine templateEngine;
+
     @Override
     public void afterPropertiesSet() {
+        templateEngine = new TemplateEngine();
         admin = getUserManager().getUserByName("admin");
         bootstrap();
     }
@@ -550,6 +555,7 @@ public class JiraConfiguration implements InitializingBean {
             tab.addFieldScreenLayoutItem(findField(fields[i]).getId(), i);
         }
         tab.getFieldScreenLayoutItems().stream().skip(fields.length).forEach(FieldScreenLayoutItem::remove);
+        screensIds.put(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, name.toUpperCase().replace(" ", "_")), fieldScreen.getId());
         log.trace("Finished creation of screen {}, with fields: {}", name, Arrays.toString(fields));
         return fieldScreen;
     }
@@ -593,7 +599,7 @@ public class JiraConfiguration implements InitializingBean {
                 getWorkflowSchemeManager().updateWorkflowScheme(builder.build());
                 workflowManager.deleteWorkflow(existingWorkflow);
             }
-            final WorkflowDescriptor workflowDescriptor = WorkflowLoader.load(ClassLoaderUtils.getResourceAsStream("workflows/" + issueType + ".xml", getClass()), true);
+            final WorkflowDescriptor workflowDescriptor = WorkflowLoader.load(templateEngine.renderAsStream("workflows/" + issueType + ".xml", screensIds), true);
             ConfigurableJiraWorkflow newWorkflow = new ConfigurableJiraWorkflow(name, workflowDescriptor, workflowManager);
             workflowManager.createWorkflow(admin, newWorkflow);
             return newWorkflow;

@@ -139,6 +139,11 @@
             <version>1.8.5</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.velocity</groupId>
+            <artifactId>velocity</artifactId>
+            <version>1.7</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -170,6 +175,8 @@
                         <!--<Export-Package></Export-Package>-->
                         <!-- Add package import here -->
                         <Import-Package>
+                            org.apache.*;resolution:="optional",
+                            com.werken.xpath.*;resolution:="optional",
                             waffle.windows.auth.*;resolution:="optional",
                             org.osgi.service.*;resolution:="optional",
                             com.sun.jna.*;resolution:="optional",
