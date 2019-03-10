@@ -10,7 +10,7 @@ import com.atlassian.jira.config.IssueTypeService;
 import com.atlassian.jira.config.StatusCategoryManager;
 import com.atlassian.jira.config.StatusManager;
 import com.atlassian.jira.issue.CustomFieldManager;
-import com.atlassian.jira.issue.customfields.CustomFieldType;
+import com.atlassian.jira.issue.customfields.CustomFieldSearcher;
 import com.atlassian.jira.issue.customfields.manager.OptionsManager;
 import com.atlassian.jira.issue.customfields.option.Options;
 import com.atlassian.jira.issue.fields.CustomField;
@@ -66,6 +66,7 @@ import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -331,10 +332,10 @@ public class JiraConfiguration implements InitializingBean {
         createDateField(ACT_START_DATE);
         createDateField(ACT_END_DATE);
         createTextField(CONTRACTOR_NAME);
-        createNumberField(CONTRACTOR_ID);
+        createUserField(CONTRACTOR_ID);
         createTextField(CONTRACTOR_BANK);
         createNumberField(CONTRACTOR_BANK_ID);
-        createNumberField(ACCOUNT_NUMBER);
+        createTextField(ACCOUNT_NUMBER);
         createTextField(BUSINESS_ADDRESS);
         createTextField(BUSINESS_MAIL);
         createTextField(PHONE);
@@ -382,11 +383,12 @@ public class JiraConfiguration implements InitializingBean {
         Collection<CustomField> customFieldObjectsByName = customFieldManager.getCustomFieldObjectsByName(name);
         CustomField result = null;
         String jiraType = "com.atlassian.jira.plugin.system.customfieldtypes:" + type;
+        CustomFieldSearcher customFieldSearcher = customFieldManager.getCustomFieldSearcher("com.atlassian.jira.plugin.system.customfieldtypes:" + searcher);
         if (customFieldObjectsByName.isEmpty()) {
             try {
                 result = customFieldManager.createCustomField(name, null,
                         customFieldManager.getCustomFieldType(jiraType),
-                        customFieldManager.getCustomFieldSearcher("com.atlassian.jira.plugin.system.customfieldtypes:" + searcher),
+                        customFieldSearcher,
                         buildJiraIssueContexts(true, null, getProjectManager()),
                         Arrays.asList((IssueType) null));
                 log.debug("Successfully created custom field {}", name);
@@ -395,19 +397,12 @@ public class JiraConfiguration implements InitializingBean {
             }
         } else {
             log.debug("Custom field with the name {} already exists", name);
-            CustomField customField = customFieldObjectsByName.iterator().next();
-            CustomFieldType fieldType = customField.getCustomFieldType();
-            if (!fieldType.getKey().equals(jiraType)) {
-                log.debug("Custom field with the name {} has different type: {}", name, fieldType.getName());
-                try {
-                    customFieldManager.removeCustomField(customField);
-                    log.debug("Removal of field {} was successful", name);
-                    createCustomField(name, type, searcher);
-                } catch (Exception e) {
-                    log.error("Failed to remove custom field {}" + name, e);
-                }
-            }
-            result = customField;
+            List<CustomField> customFields = customFieldObjectsByName.stream().sorted(Collections.reverseOrder()).collect(toList());
+            customFields.stream().skip(1).forEach(customField -> {
+                customFieldManager.updateCustomField(customField.getIdAsLong(), name + " OLD", null, customFieldSearcher);
+                log.warn("!!!!RENAMED " + name + " to OLD");
+            });
+            result = customFields.get(0);
         }
         customFields.put(name, result);
         log.trace("Finished creation of custom field, name: {}, type: {}", name, type);
@@ -464,11 +459,11 @@ public class JiraConfiguration implements InitializingBean {
 
     private void createScreens() {
         log.trace("Trying to create screens");
-        createScreen(new IssueScreensFields(IMPROVEMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR).create(FUND_TYPE, ROOMER).view(ACTUAL_COSTS, PLANNED_COSTS));
+        createScreen(new IssueScreensFields(IMPROVEMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR).create(FUND_TYPE, ROOMER, PRIORITY).view(ACTUAL_COSTS, PLANNED_COSTS));
         createFieldScreen("IMPROVEMENT Identify Scope", PLANNED_COSTS);
         createFieldScreen("IMPROVEMENT Work is Finished", ACTUAL_COSTS);
 
-        createScreen(new IssueScreensFields(INCIDENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(FUND_TYPE, ROOMER).view(ACTUAL_COSTS, CONTRACTOR));
+        createScreen(new IssueScreensFields(INCIDENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(FUND_TYPE, ROOMER, PRIORITY).view(ACTUAL_COSTS, CONTRACTOR));
         createFieldScreen("INCIDENT Identify Scope", CONTRACTOR);
         createFieldScreen("INCIDENT Work is Finished", ACTUAL_COSTS);
 
@@ -483,7 +478,7 @@ public class JiraConfiguration implements InitializingBean {
 
         createScreen(new IssueScreensFields(PUBLIC).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, ACT_START_DATE, ACT_END_DATE, PRIORITY));
 
-        createScreen(new IssueScreensFields(BOARDING).create(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR_NAME, CONTRACTOR_ID, ACCOUNT_NUMBER, CONTRACTOR_BANK, BUSINESS_ADDRESS, PHONE, BUSINESS_MAIL, EDRPOU));
+        createScreen(new IssueScreensFields(BOARDING).create(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR_NAME, CONTRACTOR_ID, ACCOUNT_NUMBER, CONTRACTOR_BANK, CONTRACTOR_BANK_ID, BUSINESS_ADDRESS, PHONE, BUSINESS_MAIL, EDRPOU));
         createScreen(new IssueScreensFields(BOARDING_VALIDATION).edit(SUMMARY, DUE_DATE, DESCRIPTION, ASSIGNEE));
         log.trace("Finished creation of screens");
     }
@@ -565,6 +560,8 @@ public class JiraConfiguration implements InitializingBean {
         createWorkflow(INCIDENT);
         createWorkflow(TASK);
         createWorkflow(BOARDING_VALIDATION);
+        createWorkflow(PAYMENT);
+        createWorkflow(PAYMENT_NOTIFY);
     }
 
     private void createWorkflow(String issueTypeName) {
@@ -589,9 +586,9 @@ public class JiraConfiguration implements InitializingBean {
 
     private JiraWorkflow importWorkflow(String issueType, AssignableWorkflowScheme workflowScheme) {
         try {
-            issueType = issueType.replace(" ", "");
+            String issueTypeEdited = issueType.replace(" ", "");
             WorkflowManager workflowManager = getWorkflowManager();
-            String name = issueType + "WF";
+            String name = issueTypeEdited + "WF";
             JiraWorkflow existingWorkflow = workflowManager.getWorkflow(name);
             if (existingWorkflow != null) {
                 AssignableWorkflowScheme.Builder builder = workflowScheme.builder();
@@ -599,7 +596,7 @@ public class JiraConfiguration implements InitializingBean {
                 getWorkflowSchemeManager().updateWorkflowScheme(builder.build());
                 workflowManager.deleteWorkflow(existingWorkflow);
             }
-            final WorkflowDescriptor workflowDescriptor = WorkflowLoader.load(templateEngine.renderAsStream("workflows/" + issueType + ".xml", screensIds), true);
+            final WorkflowDescriptor workflowDescriptor = WorkflowLoader.load(templateEngine.renderAsStream("workflows/" + issueTypeEdited + ".xml", screensIds), true);
             ConfigurableJiraWorkflow newWorkflow = new ConfigurableJiraWorkflow(name, workflowDescriptor, workflowManager);
             workflowManager.createWorkflow(admin, newWorkflow);
             return newWorkflow;
