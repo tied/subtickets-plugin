@@ -119,6 +119,7 @@ public class Constants {
     public static final String ADMIN_ROLE_NAME = "Administrators";
 
     public static final String VOTING_TEMPLATE_FILE_NAME = "Voting template.pdf";
+    public static final String JSON_FILE_PATTERN = ".*\\.json";
 
     public static final Float COSTS_THRESHOLD = 5000f;
 
