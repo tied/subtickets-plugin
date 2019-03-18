@@ -459,11 +459,11 @@ public class JiraConfiguration implements InitializingBean {
 
     private void createScreens() {
         log.trace("Trying to create screens");
-        createScreen(new IssueScreensFields(IMPROVEMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR).create(FUND_TYPE, ROOMER, PRIORITY).view(ACTUAL_COSTS, PLANNED_COSTS));
+        createScreen(new IssueScreensFields(IMPROVEMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, CONTRACTOR, ROOMER, PRIORITY, ACTUAL_COSTS).create(FUND_TYPE).view(PLANNED_COSTS));
         createFieldScreen("IMPROVEMENT Identify Scope", PLANNED_COSTS);
         createFieldScreen("IMPROVEMENT Work is Finished", ACTUAL_COSTS);
 
-        createScreen(new IssueScreensFields(INCIDENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(FUND_TYPE, ROOMER, PRIORITY).view(ACTUAL_COSTS, CONTRACTOR));
+        createScreen(new IssueScreensFields(INCIDENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, ROOMER, PRIORITY, ACTUAL_COSTS).create(FUND_TYPE).view(CONTRACTOR));
         createFieldScreen("INCIDENT Identify Scope", CONTRACTOR);
         createFieldScreen("INCIDENT Work is Finished", ACTUAL_COSTS);
 
@@ -473,7 +473,7 @@ public class JiraConfiguration implements InitializingBean {
         createScreen(new IssueScreensFields(PAYMENT).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS).create(PLANNED_COSTS, FUND_TYPE, FUND_COLLECTION_MANNER).view(ACTUAL_COSTS));
         createFieldScreen("PAYMENT Resolve", ACTUAL_COSTS);
 
-        createScreen(new IssueScreensFields(PAYMENT_NOTIFY).edit(SUMMARY, DESCRIPTION, LABELS).create(PLANNED_COSTS, ROOMER, ASSIGNEE).view(ACTUAL_COSTS));
+        createScreen(new IssueScreensFields(PAYMENT_NOTIFY).edit(SUMMARY, DESCRIPTION, LABELS, ACTUAL_COSTS).create(PLANNED_COSTS, ROOMER, ASSIGNEE).view());
         createFieldScreen("PAYMENT NOTIFY Confirm", ACTUAL_COSTS);
 
         createScreen(new IssueScreensFields(PUBLIC).edit(SUMMARY, DUE_DATE, DESCRIPTION, LABELS, ACT_START_DATE, ACT_END_DATE, PRIORITY));
