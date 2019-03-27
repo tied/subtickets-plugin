@@ -80,10 +80,11 @@ public class IssueEventListener implements InitializingBean, DisposableBean {
         try {
             Request<?, ?> request = requestFactory.createRequest(Request.MethodType.POST, SERVICE_ENDPOINT + url);
             request.setSoTimeout(200000);
-            String execute = request.execute();
-            log.debug("Request to " + url + ". Response: " + execute);
+            log.debug("Request to " + url);
+            String response = request.execute();
+            log.debug("Response: " + response);
         } catch (ResponseException e) {
-            e.printStackTrace();
+            log.error("Error while sending request to {}: {}", url, e.getMessage());
         }
     }
 
