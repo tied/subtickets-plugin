@@ -4,7 +4,6 @@ import com.atlassian.jira.bc.ServiceResult;
 import com.atlassian.jira.bc.config.StatusService;
 import com.atlassian.jira.bc.project.ProjectCreationData;
 import com.atlassian.jira.bc.project.ProjectService;
-import com.atlassian.jira.bc.projectroles.ProjectRoleService;
 import com.atlassian.jira.config.IssueTypeManager;
 import com.atlassian.jira.config.IssueTypeService;
 import com.atlassian.jira.config.StatusCategoryManager;
@@ -36,10 +35,9 @@ import com.atlassian.jira.issue.operation.ScreenableIssueOperation;
 import com.atlassian.jira.issue.status.category.StatusCategory;
 import com.atlassian.jira.project.AssigneeTypes;
 import com.atlassian.jira.project.Project;
-import com.atlassian.jira.security.roles.ProjectRoleImpl;
+import com.atlassian.jira.security.groups.GroupManager;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.util.ErrorCollection;
-import com.atlassian.jira.util.SimpleErrorCollection;
 import com.atlassian.jira.workflow.AssignableWorkflowScheme;
 import com.atlassian.jira.workflow.ConfigurableJiraWorkflow;
 import com.atlassian.jira.workflow.JiraWorkflow;
@@ -77,6 +75,7 @@ import static com.atlassian.jira.component.ComponentAccessor.getConstantsManager
 import static com.atlassian.jira.component.ComponentAccessor.getCustomFieldManager;
 import static com.atlassian.jira.component.ComponentAccessor.getFieldManager;
 import static com.atlassian.jira.component.ComponentAccessor.getFieldScreenManager;
+import static com.atlassian.jira.component.ComponentAccessor.getGroupManager;
 import static com.atlassian.jira.component.ComponentAccessor.getIssueTypeScreenSchemeManager;
 import static com.atlassian.jira.component.ComponentAccessor.getOptionsManager;
 import static com.atlassian.jira.component.ComponentAccessor.getProjectManager;
@@ -164,7 +163,7 @@ public class JiraConfiguration implements InitializingBean {
     private void bootstrap() {
         initDBTable();
         createProject();
-        createProjectRoles();
+        createUsersGroups();
         createIssueTypes();
         createCustomFields();
         createStatuses();
@@ -242,24 +241,28 @@ public class JiraConfiguration implements InitializingBean {
         log.trace("Finished creation of project");
     }
 
-    private void createProjectRoles() {
+    private void createUsersGroups() {
         log.trace("Trying to create project roles");
-        createProjectRole("Accountant");
-        createProjectRole("CEO");
-        createProjectRole("CTO");
-        createProjectRole("Contractor");
-        createProjectRole("PQI");
-        createProjectRole("Roomer");
+        createUsersGroup("Accountant");
+        createUsersGroup("CEO");
+        createUsersGroup("CTO");
+        createUsersGroup("Contractor");
+        createUsersGroup("PQI");
+        createUsersGroup("Roomer");
         log.trace("Finished creation of project roles");
     }
 
-    private void createProjectRole(String name) {
-        log.trace("Trying to project role {}", name);
-        ProjectRoleService projectRoleService = getComponent(ProjectRoleService.class);
-        SimpleErrorCollection errors = new SimpleErrorCollection();
-        projectRoleService.createProjectRole(admin, new ProjectRoleImpl(name, null), errors);
-        logErrors(errors);
-        log.debug("Successfully created project role {}", name);
+    private void createUsersGroup(String name) {
+        log.trace("Trying to create users group {}", name);
+        GroupManager groupManager = getGroupManager();
+        if (!groupManager.groupExists(name)) {
+            try {
+                groupManager.createGroup(name);
+                log.debug("Successfully created users group {}", name);
+            } catch (Exception e) {
+                log.error("Failed to create group with name {}. Message: {}", name, e.getMessage());
+            }
+        }
     }
 
     private void createIssueTypes() {
