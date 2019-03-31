@@ -115,8 +115,15 @@ public class Constants {
     public static final String GET_VOTING_RESULTS_URL = "http://localhost:3000/getvotingresults";
     public static final String START_VOTING_SESSION_URL = "http://localhost:3000/startvotingsession";
 
-    public static final String ACCOUNTANT_ROLE_NAME = "Accountant";
-    public static final String ADMIN_ROLE_NAME = "Administrators";
+    public static class Groups {
+        public static final String ACCOUNTANT = "Accountant";
+        public static final String CEO = "CEO";
+        public static final String CTO = "CTO";
+        public static final String CONTRACTOR = "Contractor";
+        public static final String PQI = "PQI";
+        public static final String ROOMER = "Roomer";
+        public static final String ADMIN = "Administrator";
+    }
 
     public static final String VOTING_TEMPLATE_FILE_NAME = "Voting template.pdf";
     public static final String JSON_FILE_PATTERN = ".*\\.json";

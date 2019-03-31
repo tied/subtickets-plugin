@@ -47,6 +47,7 @@ import com.google.common.base.CaseFormat;
 import com.opensymphony.workflow.loader.WorkflowDescriptor;
 import com.opensymphony.workflow.loader.WorkflowLoader;
 import com.subtickets.Constants.FieldAvailability;
+import com.subtickets.Constants.Groups;
 import com.subtickets.Constants.StatusCategoryName;
 import com.subtickets.servlet.DataSourceConfig;
 import com.subtickets.servlet.JiraDBConfig;
@@ -242,14 +243,15 @@ public class JiraConfiguration implements InitializingBean {
     }
 
     private void createUsersGroups() {
-        log.trace("Trying to create project roles");
-        createUsersGroup("Accountant");
-        createUsersGroup("CEO");
-        createUsersGroup("CTO");
-        createUsersGroup("Contractor");
-        createUsersGroup("PQI");
-        createUsersGroup("Roomer");
-        log.trace("Finished creation of project roles");
+        log.trace("Trying to create users groups");
+        createUsersGroup(Groups.ACCOUNTANT);
+        createUsersGroup(Groups.ADMIN);
+        createUsersGroup(Groups.CEO);
+        createUsersGroup(Groups.CTO);
+        createUsersGroup(Groups.CONTRACTOR);
+        createUsersGroup(Groups.PQI);
+        createUsersGroup(Groups.ROOMER);
+        log.trace("Finished creation of users groups");
     }
 
     private void createUsersGroup(String name) {

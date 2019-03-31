@@ -17,7 +17,7 @@
         <label key="subtickets-creation-link.label"/>
         <link linkId="subtickets-creation-link">/plugins/servlet/create-subtickets?id=$issue.key</link>
         <conditions type="AND">
-            <condition class="com.subtickets.conditions.AccountantRoleCondition"/>
+            <condition class="com.subtickets.conditions.AccountantGroupCondition"/>
             <condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>
             <condition class="com.subtickets.conditions.PaymentIssueTypeCondition"/>
             <condition class="com.subtickets.conditions.PaymentDataPresent"/>
@@ -34,7 +34,7 @@
         <label key="voting-results-link.label"/>
         <link linkId="voting-results-link">/plugins/servlet/get-voting-results?id=$issue.key</link>
         <conditions type="AND">
-            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
+            <condition class="com.subtickets.conditions.AdminGroupCondition"/>
             <conditions type="OR">
                 <conditions type="AND">
                     <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
@@ -58,7 +58,7 @@
         <label key="voting-session-start.label"/>
         <link linkId="voting-session-start">/plugins/servlet/voting-session-start?id=$issue.key</link>
         <conditions type="AND">
-            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
+            <condition class="com.subtickets.conditions.AdminGroupCondition"/>
             <condition class="com.subtickets.conditions.VotingIssuesLinked"/>
             <condition class="com.subtickets.conditions.VotingSessionIssueType"/>
             <condition class="com.subtickets.conditions.VotingTemplatePresent" invert="true"/>
