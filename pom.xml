@@ -14,6 +14,19 @@
     <!--<description>This is the com.shepilov.jira-tutorial:plugin-tutorial plugin for Atlassian JIRA.</description>-->
     <packaging>atlassian-plugin</packaging>
 
+  <pluginRepositories>
+    <pluginRepository>
+      <id>atlassian-public</id>
+      <url>https://m2proxy.atlassian.com/repository/public/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
     <repositories>
         <repository>
             <id>atlassian-public</id>
@@ -28,6 +41,19 @@
                 <checksumPolicy>warn</checksumPolicy>
             </releases>
         </repository>
+      <repository>
+        <releases>
+          <enabled>true</enabled>
+          <checksumPolicy>warn</checksumPolicy>
+        </releases>
+        <snapshots>
+          <enabled>true</enabled>
+          <updatePolicy>never</updatePolicy>
+          <checksumPolicy>warn</checksumPolicy>
+        </snapshots>
+        <id>atlassian-external</id>
+        <url>https://maven.atlassian.com/repository/public</url>
+      </repository>
     </repositories>
 
     <dependencies>
@@ -139,6 +165,11 @@
             <version>1.8.5</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.velocity</groupId>
+            <artifactId>velocity</artifactId>
+            <version>1.7</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -170,6 +201,8 @@
                         <!--<Export-Package></Export-Package>-->
                         <!-- Add package import here -->
                         <Import-Package>
+                            org.apache.*;resolution:="optional",
+                            com.werken.xpath.*;resolution:="optional",
                             waffle.windows.auth.*;resolution:="optional",
                             org.osgi.service.*;resolution:="optional",
                             com.sun.jna.*;resolution:="optional",
@@ -210,7 +243,7 @@
         </plugins>
     </build>
     <properties>
-        <jira.version>7.2.13</jira.version>
+        <jira.version>7.12.1</jira.version>
         <amps.version>6.3.13</amps.version>
         <plugin.testrunner.version>1.2.3</plugin.testrunner.version>
         <atlassian.spring.scanner.version>1.2.13</atlassian.spring.scanner.version>

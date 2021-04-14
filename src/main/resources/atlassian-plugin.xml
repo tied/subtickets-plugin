@@ -17,9 +17,10 @@
         <label key="subtickets-creation-link.label"/>
         <link linkId="subtickets-creation-link">/plugins/servlet/create-subtickets?id=$issue.key</link>
         <conditions type="AND">
-            <condition class="com.subtickets.conditions.AccountantRoleCondition"/>
+            <condition class="com.subtickets.conditions.AccountantGroupCondition"/>
             <condition class="com.subtickets.conditions.SubIssuesPresentCondition" invert="true"/>
             <condition class="com.subtickets.conditions.PaymentIssueTypeCondition"/>
+            <condition class="com.subtickets.conditions.PaymentDataPresent"/>
         </conditions>
     </web-item>
     <servlet name="Sub-Tickets Servlet" i18n-name-key="subtickets-servlet.name" key="subtickets-servlet" class="com.subtickets.servlet.SubTicketsServlet">
@@ -33,7 +34,7 @@
         <label key="voting-results-link.label"/>
         <link linkId="voting-results-link">/plugins/servlet/get-voting-results?id=$issue.key</link>
         <conditions type="AND">
-            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
+            <condition class="com.subtickets.conditions.AdminGroupCondition"/>
             <conditions type="OR">
                 <conditions type="AND">
                     <condition class="com.subtickets.conditions.VotingIssueTypeCondition"/>
@@ -57,7 +58,7 @@
         <label key="voting-session-start.label"/>
         <link linkId="voting-session-start">/plugins/servlet/voting-session-start?id=$issue.key</link>
         <conditions type="AND">
-            <condition class="com.subtickets.conditions.AdminRoleCondition"/>
+            <condition class="com.subtickets.conditions.AdminGroupCondition"/>
             <condition class="com.subtickets.conditions.VotingIssuesLinked"/>
             <condition class="com.subtickets.conditions.VotingSessionIssueType"/>
             <condition class="com.subtickets.conditions.VotingTemplatePresent" invert="true"/>
@@ -67,5 +68,19 @@
         <description key="voting-template-gen-servlet.description">The Voting Session Start Plugin</description>
         <url-pattern>/voting-session-start</url-pattern>
     </servlet>
+
+    <workflow-condition key="planned-costs-greater-than" name="Planned Costs Greater Than" i18n-name-key="planned-costs-greater-than.name"
+                        class="com.subtickets.workflow.EmptyContextConditionFactory">
+        <description key="planned-costs-greater-than.description">The Planned Costs Greater Than Plugin</description>
+        <condition-class>com.subtickets.workflow.PlannedCostsGE</condition-class>
+        <resource type="velocity" name="view" location="templates/conditions/planned-costs-greater-than.vm"/>
+    </workflow-condition>
+
+    <workflow-condition key="planned-costs-less-than" name="Planned Costs Less Than" i18n-name-key="planned-costs-less-than.name"
+                        class="com.subtickets.workflow.EmptyContextConditionFactory">
+        <description key="planned-costs-less-than.description">The Planned Costs Less Than Plugin</description>
+        <condition-class>com.subtickets.workflow.PlannedCostsL</condition-class>
+        <resource type="velocity" name="view" location="templates/conditions/planned-costs-less-than.vm"/>
+    </workflow-condition>
 
 </atlassian-plugin>

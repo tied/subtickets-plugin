@@ -1,13 +1,9 @@
 package com.subtickets.servlet;
 
 import com.atlassian.jira.bc.issue.IssueService;
-import com.atlassian.jira.bc.project.ProjectCreationData;
-import com.atlassian.jira.bc.project.ProjectService;
 import com.atlassian.jira.component.ComponentAccessor;
-import com.atlassian.jira.config.IssueTypeService;
 import com.atlassian.jira.config.SubTaskManager;
 import com.atlassian.jira.exception.CreateException;
-import com.atlassian.jira.issue.CustomFieldManager;
 import com.atlassian.jira.issue.Issue;
 import com.atlassian.jira.issue.IssueInputParameters;
 import com.atlassian.jira.issue.IssueInputParametersImpl;
@@ -19,7 +15,6 @@ import com.atlassian.jira.issue.label.LabelManager;
 import com.atlassian.jira.issue.link.IssueLinkManager;
 import com.atlassian.jira.issue.link.IssueLinkType;
 import com.atlassian.jira.issue.util.DefaultIssueChangeHolder;
-import com.atlassian.jira.project.AssigneeTypes;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.user.UserDetails;
 import com.atlassian.jira.user.util.UserManager;
@@ -27,22 +22,16 @@ import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.net.Request;
 import com.atlassian.sal.api.net.RequestFactory;
 import com.atlassian.sal.api.net.ResponseException;
+import com.subtickets.Constants;
 import com.subtickets.roomers.Roomer;
 import com.subtickets.roomers.Roomers;
-import org.ofbiz.core.entity.GenericEntityException;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.Unmarshaller;
-import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
@@ -50,15 +39,13 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.subtickets.Constants.ACTUAL_COSTS_FIELD_NAME;
 import static com.subtickets.Constants.AUTO_COMPONENT_NAME;
 import static com.subtickets.Constants.CREATE_SUBS_URL;
 import static com.subtickets.Constants.DOOR_COMPONENT_NAME;
-import static com.subtickets.Constants.FUND_COLLECTION_MANNER_FIELD_NAME;
-import static com.subtickets.Constants.FUND_TYPE_FIELD_NAME;
-import static com.subtickets.Constants.PAYMENT_ISSUE_TYPE_NAME;
-import static com.subtickets.Constants.PAYMENT_SUB_ISSUE_TYPE_NAME;
-import static com.subtickets.Constants.PLANNED_COSTS_FIELD_NAME;
+import static com.subtickets.Constants.FieldNames.ACTUAL_COSTS;
+import static com.subtickets.Constants.FieldNames.FUND_COLLECTION_MANNER;
+import static com.subtickets.Constants.FieldNames.FUND_TYPE;
+import static com.subtickets.Constants.FieldNames.PLANNED_COSTS;
 import static com.subtickets.Constants.ROOMERS_URL;
 import static com.subtickets.Constants.SQUARE_COMPONENT_NAME;
 import static java.util.stream.Collectors.joining;
@@ -76,7 +63,6 @@ public class SubTicketsServlet extends HttpServlet {
     private IssueType fundPaymentSubIssueType;
 
     private ApplicationUser roomerUser;
-    private ApplicationUser admin;
 
     private IssueLinkType blockedBy;
 
@@ -110,8 +96,8 @@ public class SubTicketsServlet extends HttpServlet {
         this.subTaskManager = subTaskManager;
         issueLinkManager = ComponentAccessor.getIssueLinkManager();
 
-        blockedBy = ComponentAccessor.getComponent(IssueLinkTypeManager.class)
-                .getIssueLinkTypesByInwardDescription(BLOCKED_BY_LINK_TYPE_NAME).stream().findFirst().get();
+//        blockedBy = ComponentAccessor.getComponent(IssueLinkTypeManager.class)
+//                .getIssueLinkTypesByInwardDescription(BLOCKED_BY_LINK_TYPE_NAME).stream().findFirst().get();
 
         if (this.jiraUserManager.getUserByName("Roomer") != null) {
             roomerUser = this.jiraUserManager.getUserByName("Roomer");
@@ -124,22 +110,19 @@ public class SubTicketsServlet extends HttpServlet {
                 e.printStackTrace();
             }
         }
-        admin = jiraUserManager.getUserByName("admin");
-
-        bootstrap();
 
         ComponentAccessor.getCustomFieldManager().getCustomFieldObjects().forEach(customField -> {
             switch (customField.getUntranslatedName()) {
-                case ACTUAL_COSTS_FIELD_NAME:
+                case ACTUAL_COSTS:
                     ACTUAL_COSTS_FIELD = customField;
                     break;
-                case PLANNED_COSTS_FIELD_NAME:
+                case PLANNED_COSTS:
                     PLANNED_COSTS_FIELD = customField;
                     break;
-                case FUND_TYPE_FIELD_NAME:
+                case FUND_TYPE:
                     FUND_TYPE_FIELD = customField;
                     break;
-                case FUND_COLLECTION_MANNER_FIELD_NAME:
+                case FUND_COLLECTION_MANNER:
                     FUND_COLLECTION_MANNER_TYPE_FIELD = customField;
                     break;
             }
@@ -148,159 +131,14 @@ public class SubTicketsServlet extends HttpServlet {
         Collection<IssueType> issueTypes = ComponentAccessor.getConstantsManager().getAllIssueTypeObjects();
         issueTypes.forEach(type -> {
             switch (type.getName()) {
-                case (PAYMENT_ISSUE_TYPE_NAME):
+                case (Constants.IssueTypesNames.PAYMENT):
                     fundPaymentIssueType = type;
                     break;
-                case (PAYMENT_SUB_ISSUE_TYPE_NAME):
+                case (Constants.IssueTypesNames.PAYMENT_NOTIFY):
                     fundPaymentSubIssueType = type;
                     break;
             }
         });
-    }
-
-    private void bootstrap() {
-        initDBTable();
-        createProject();
-        createIssueTypes();
-        createCustomFields();
-    }
-
-    private void createCustomFields() {
-        createNumberField("Actual Costs");
-        createSelectField("Fund collection manner");
-        createSelectField("Fund type");
-        createNumberField("Planned Costs");
-        createTextField("Room");
-        createTextField("Roomer");
-        createNumberField("Vote Square");
-    }
-
-    private void createTextField(String name) {
-        createCustomField(name, "textfield", "textsearcher");
-    }
-
-    private void createNumberField(String name) {
-        createCustomField(name, "float", "exactnumber");
-    }
-
-    private void createSelectField(String name) {
-        createCustomField(name, "select", "multiselectsearcher");
-    }
-
-    private void createCustomField(String name, String type, String searcher) {
-        CustomFieldManager customFieldManager = ComponentAccessor.getCustomFieldManager();
-        Collection<CustomField> customFields = customFieldManager.getCustomFieldObjectsByName(name);
-        if (customFields.isEmpty()) {
-            try {
-                customFieldManager.createCustomField(name, null,
-                        customFieldManager.getCustomFieldType("com.atlassian.jira.plugin.system.customfieldtypes:" + type),
-                        customFieldManager.getCustomFieldSearcher("com.atlassian.jira.plugin.system.customfieldtypes:" + searcher),
-                        null, null);
-            } catch (GenericEntityException e) {
-                e.printStackTrace();
-            }
-        } else {
-            System.out.println("Custom field with the name \"" + name + "\" already exists");
-        }
-    }
-
-    private void initDBTable() {
-        DataSourceConfig dataSourceConfig = parseDbConfig().dataSourceConfig;
-        Connection conn = null;
-        Statement stmt = null;
-        try {
-            Class.forName(dataSourceConfig.driveClassName);
-            conn = DriverManager.getConnection(dataSourceConfig.url, dataSourceConfig.username, dataSourceConfig.password);
-            stmt = conn.createStatement();
-            boolean tableExists = conn.getMetaData().getTables(null, null, "cwd_user_pass", null).next();
-            if (!tableExists) {
-                stmt.executeUpdate("CREATE table cwd_user_pass " +
-                        "(pwd_hash character varying(255) NOT NULL, " +
-                        "fk_user_id numeric(18,0) NOT NULL, " +
-                        "change_stamp timestamp without time zone DEFAULT now(), " +
-                        "CONSTRAINT \"PK_cwd_user_pass\" PRIMARY KEY (fk_user_id, pwd_hash), " +
-                        "CONSTRAINT \"FK_cwd_user_id\" FOREIGN KEY (fk_user_id) " +
-                        "REFERENCES cwd_user (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE) " +
-                        "WITH (OIDS=FALSE);");
-            } else {
-                System.out.println("Table cwd_user_pass exists");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                stmt.close();
-                conn.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private JiraDBConfig parseDbConfig() {
-        try {
-            String catalinaBase = System.getenv("CATALINA_BASE");
-            File dbConfig = new File(new File(catalinaBase).getParent(), "Application Data/JIRA/dbconfig.xml");
-            JAXBContext context = JAXBContext.newInstance(JiraDBConfig.class);
-            Unmarshaller unmarshaller = context.createUnmarshaller();
-            return (JiraDBConfig) unmarshaller.unmarshal(dbConfig);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-
-    private void createProject() {
-        ProjectService projectService = ComponentAccessor.getComponent(ProjectService.class);
-        ProjectService.CreateProjectValidationResult createProjectValidationResult = projectService.validateCreateProject(admin, new ProjectCreationData.Builder()
-                .withName("New OSMD")
-                .withKey("NSMD")
-                .withType("business")
-                .withLead(admin)
-                .withAssigneeType(AssigneeTypes.UNASSIGNED)
-                .build());
-        if (createProjectValidationResult.isValid()) {
-            projectService.createProject(createProjectValidationResult);
-        } else {
-            System.err.println(Arrays.toString(createProjectValidationResult.getErrorCollection().getErrors().entrySet().toArray()));
-        }
-    }
-
-    private void createIssueTypes() {
-        createIssueType("Improvement");
-        createIssueType("Incident");
-        createIssueType("Notification");
-        createIssueType("Payment");
-        createIssueType("Task");
-        createIssueType("Voting");
-        createIssueType("Voting session");
-        createSubIssueType("Payment Notify");
-        createSubIssueType("Sub-task");
-        createSubIssueType("Voting Notify");
-        createSubIssueType("Test Notify");
-    }
-
-    private void createIssueType(String name) {
-        createIssueType(name, false);
-    }
-
-    private void createSubIssueType(String name) {
-        createIssueType(name, true);
-    }
-
-    private void createIssueType(String name, boolean subTask) {
-        IssueTypeService issueTypeService = ComponentAccessor.getComponent(IssueTypeService.class);
-        IssueTypeService.IssueTypeCreateInput issueTypeCreateInput = new IssueTypeService.IssueTypeCreateInput.Builder()
-                .setName(name)
-                .setType(subTask ? IssueTypeService.IssueTypeCreateInput.Type.SUBTASK : IssueTypeService.IssueTypeCreateInput.Type.STANDARD)
-                .build();
-        IssueTypeService.CreateValidationResult createValidationResult = issueTypeService.validateCreateIssueType(admin, issueTypeCreateInput);
-        if (createValidationResult.isValid()) {
-            issueTypeService.createIssueType(admin, createValidationResult);
-        } else {
-            System.err.println(Arrays.toString(createValidationResult.getErrorCollection().getErrors().entrySet().toArray()));
-        }
     }
 
     @Override
